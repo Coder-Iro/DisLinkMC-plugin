@@ -18,14 +18,14 @@ repositories {
 
 dependencies {
     compileOnly("com.velocitypowered:velocity-api:3.0.1")
-    implementation("redis.clients:jedis:4.0.0")
+    compileOnly("io.lettuce:lettuce-core:6.1.6.RELEASE")
     implementation("com.j256.two-factor-auth:two-factor-auth:1.3")
     annotationProcessor("com.velocitypowered:velocity-api:3.0.1")
 }
 
 tasks {
     withType<ShadowJar> {
-        listOf("com.j256.twofactorauth", "redis.clients.jedis").forEach { pattern ->
+        listOf("com.j256.twofactorauth", "io.lettuce.core").forEach { pattern ->
             relocate(pattern, "io.teamif.minecord.shaded.$pattern")
         }
     }
