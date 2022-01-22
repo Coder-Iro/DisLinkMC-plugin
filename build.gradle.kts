@@ -20,10 +20,10 @@ repositories {
 
 dependencies {
     compileOnly("com.velocitypowered:velocity-api:3.0.1")
+    implementation(kotlin("stdlib-jdk8"))
     implementation("io.lettuce:lettuce-core:6.1.6.RELEASE")
     implementation("com.j256.two-factor-auth:two-factor-auth:1.3")
     annotationProcessor("com.velocitypowered:velocity-api:3.0.1")
-    implementation(kotlin("stdlib-jdk8"))
 }
 
 tasks {
