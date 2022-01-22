@@ -1,8 +1,10 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     java
     id("com.github.johnrengelman.shadow") version "7.1.2"
+    kotlin("jvm") version "1.6.10"
 }
 
 group = "io.teamif"
@@ -21,15 +23,24 @@ dependencies {
     implementation("io.lettuce:lettuce-core:6.1.6.RELEASE")
     implementation("com.j256.two-factor-auth:two-factor-auth:1.3")
     annotationProcessor("com.velocitypowered:velocity-api:3.0.1")
+    implementation(kotlin("stdlib-jdk8"))
 }
 
 tasks {
     withType<ShadowJar> {
-        listOf("com.j256.twofactorauth", "io.lettuce.core").forEach { pattern ->
+        listOf("com.j256.twofactorauth", "io.lettuce.core", "kotlin").forEach { pattern ->
             relocate(pattern, "io.teamif.minecord.shaded.$pattern")
         }
     }
     build {
         finalizedBy(shadowJar)
     }
+}
+val compileKotlin: KotlinCompile by tasks
+compileKotlin.kotlinOptions {
+    jvmTarget = "16"
+}
+val compileTestKotlin: KotlinCompile by tasks
+compileTestKotlin.kotlinOptions {
+    jvmTarget = "16"
 }
