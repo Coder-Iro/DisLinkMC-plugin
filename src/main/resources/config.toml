@@ -1,0 +1,14 @@
+# config file version. Don't edit!
+version = 1
+
+[redis]
+# url of redis server
+url = "redis://localhost:6379"
+
+[message]
+# Placeholder: username : {0}, UUID : {1}, code: {2}
+#
+onsuccess = "{0}''s code : {2}"
+onfail = "Fail to generate {0}''s code"
+
+
