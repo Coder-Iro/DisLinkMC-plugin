@@ -19,21 +19,21 @@ import java.nio.file.Path
 import java.security.GeneralSecurityException
 import java.security.MessageDigest
 import java.text.MessageFormat
-import java.util.*
+import java.util.UUID
 
 @Plugin(id = "minecord", name = "MineCord", version = "0.0.4-SNAPSHOT", authors = ["Team-IF"])
 class MineCord @Inject constructor(private val logger: Logger, @DataDirectory dataDirectory: Path) {
     private val secretSalt = TimeBasedOneTimePasswordUtil.generateBase32Secret()
     private val sha256: MessageDigest
     private val redisClient: RedisClient
-    private val onsuccess: MessageFormat
-    private val onfail: MessageFormat
+    private val onSuccess: MessageFormat
+    private val onFail: MessageFormat
 
     init {
         val config = loadConfig(dataDirectory)
-        onsuccess = MessageFormat(config.message!!.onsuccess!!)
-        onfail = MessageFormat(config.message!!.onfail!!)
-        redisClient = RedisClient.create(config.redis!!.url)
+        onSuccess = MessageFormat(config.message.onSuccess)
+        onFail = MessageFormat(config.message.onFail)
+        redisClient = RedisClient.create(config.redis.url)
         sha256 = MessageDigest.getInstance("SHA-256")
     }
 
@@ -44,8 +44,8 @@ class MineCord @Inject constructor(private val logger: Logger, @DataDirectory da
     private fun loadConfig(path: Path): Config {
         val folder = path.toFile()
         val file = File(folder, "config.toml")
-        if (!file.parentFile.exists()) {
-            file.parentFile.mkdirs()
+        if (!folder.exists()) {
+            folder.mkdirs()
         }
         if (!file.exists()) {
             logger.info("Config file doesn't exist. Generating Default Config")
@@ -75,7 +75,8 @@ class MineCord @Inject constructor(private val logger: Logger, @DataDirectory da
                 val redis = connection.sync()
                 val code: Int
                 if (redis.exists(name) == 0L) {
-                    code = TimeBasedOneTimePasswordUtil.generateCurrentNumber(generateSecret(uuid), 6)
+                    code = TimeBasedOneTimePasswordUtil.generateCurrentNumber(
+                        generateSecret(uuid), 6)
                     val data = HashMap<String, String>()
                     data["UUID"] = uuid.toString()
                     data["code"] = code.toString()
@@ -84,43 +85,36 @@ class MineCord @Inject constructor(private val logger: Logger, @DataDirectory da
                 } else {
                     code = redis.hget(name, "code").toInt()
                 }
-                player.disconnect(
-                    Component.text(
-                        onsuccess.format(
-                            arrayOf(
-                                name,
-                                uuid.toString(),
-                                formatOTP(code.toLong())
-                            )
-                        )
-                    )
+                player.disconnect(Component.text(onSuccess.format(
+                    arrayOf(name, uuid.toString(), formatOTP(code.toLong()))))
                 )
             }
-        } catch (e: GeneralSecurityException) {
-            player.disconnect(Component.text(onfail.format(arrayOf(name, uuid.toString()))))
-            e.printStackTrace()
+        } catch (exception: GeneralSecurityException) {
+            player.disconnect(Component.text(onFail.format(
+                arrayOf(name, uuid.toString()))))
+            exception.printStackTrace()
         }
     }
 
     private fun generateSecret(uuid: UUID): String {
-        return BaseEncoding.base32().encode(sha256.digest((uuid.toString() + secretSalt).toByteArray()))
+        return BaseEncoding.base32().encode(
+            sha256.digest((uuid.toString() + secretSalt).toByteArray()))
     }
 
-    internal class Config {
-        @Suppress("unused")
-        var version = 0
-        var redis: Redis? = null
-        var message: MessageList? = null
-    }
+    data class Config(
+        val version: Int = 1,
+        val redis: Redis = Redis(),
+        val message: MessageList = MessageList()
+    )
 
-    internal class Redis {
-        var url: String? = null
-    }
+    data class Redis(
+        val url: String = "redis://localhost:6379"
+    )
 
-    internal class MessageList {
-        var onsuccess: String? = null
-        var onfail: String? = null
-    }
+    data class MessageList(
+        val onSuccess: String = "{0}''s code : {2}",
+        val onFail: String = "Fail to generate {0}''s code"
+    )
 
     companion object {
         private fun formatOTP(num: Long): String {
