@@ -31,6 +31,7 @@ class MineCord @Inject constructor(private val logger: Logger, @DataDirectory da
 
     init {
         val config = loadConfig(dataDirectory)
+        println(config)
         onSuccess = MessageFormat(config.message.onSuccess)
         onFail = MessageFormat(config.message.onFail)
         redisClient = RedisClient.create(config.redis.url)
