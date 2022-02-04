@@ -102,18 +102,18 @@ class MineCord @Inject constructor(private val logger: Logger, @DataDirectory da
     }
 
     data class Config(
-        val version: Int = 1,
-        val redis: Redis = Redis(),
-        val message: MessageList = MessageList()
+        var version: Int = 1,
+        var redis: Redis = Redis(),
+        var message: MessageList = MessageList()
     )
 
     data class Redis(
-        val url: String = "redis://localhost:6379"
+        var url: String = "redis://localhost:6379"
     )
 
     data class MessageList(
-        val onSuccess: String = "{0}''s code : {2}",
-        val onFail: String = "Fail to generate {0}''s code"
+        var onSuccess: String = "{0}''s code : {2}",
+        var onFail: String = "Fail to generate {0}''s code"
     )
 
     companion object {
