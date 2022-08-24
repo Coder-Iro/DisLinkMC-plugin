@@ -1,2 +1,2 @@
-rootProject.name = "minecord"
+rootProject.name = "dislinkmc"
 
