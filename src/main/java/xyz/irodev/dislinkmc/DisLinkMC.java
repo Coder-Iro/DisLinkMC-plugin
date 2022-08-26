@@ -28,7 +28,7 @@ import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.UUID;
 
-@Plugin(id = "dislinkmc", name = "DisLinkMC", version = "0.0.4-SNAPSHOT", authors = "Team-IF")
+@Plugin(id = "dislinkmc", name = "DisLinkMC", version = "0.0.4-SNAPSHOT", authors = "Coder-Iro")
 public class DisLinkMC {
     private final String secretSalt = TimeBasedOneTimePasswordUtil.generateBase32Secret();
     private final MessageDigest sha256;
@@ -37,10 +37,14 @@ public class DisLinkMC {
     private final MessageFormat onsuccess;
     private final MessageFormat onfail;
 
+    private final long timelimit;
+
     @Inject
     public DisLinkMC(Logger logger, @DataDirectory Path dataDirectory) throws NoSuchAlgorithmException {
         this.logger = logger;
         Config config = loadConfig(dataDirectory);
+
+        this.timelimit = config.otp.time;
         this.onsuccess = new MessageFormat(config.message.onsuccess);
         this.onfail = new MessageFormat(config.message.onfail);
         this.redisClient = RedisClient.create(config.redis.url);
@@ -71,13 +75,10 @@ public class DisLinkMC {
     public void onInitialize(ProxyInitializeEvent event) {
     }
 
-    @SuppressWarnings("ResultOfMethodCallIgnored")
     private Config loadConfig(Path path) {
         File folder = path.toFile();
         File file = new File(folder, "config.toml");
-        if (!file.getParentFile().exists()) {
-            file.getParentFile().mkdirs();
-        }
+        assert file.getParentFile().exists() || file.getParentFile().mkdirs();
 
         if (!file.exists()) {
             logger.info("Config file doesn't exist. Generating Default Config");
@@ -85,7 +86,7 @@ public class DisLinkMC {
                 if (input != null) {
                     Files.copy(input, file.toPath());
                 } else {
-                    file.createNewFile();
+                    assert file.createNewFile();
                 }
             } catch (IOException exception) {
                 exception.printStackTrace();
@@ -111,7 +112,7 @@ public class DisLinkMC {
                 data.put("code", Integer.toString(code));
                 data.put("realname", name);
                 redis.hset(name.toLowerCase(), data);
-                redis.expire(name.toLowerCase(), 300L);
+                redis.expire(name.toLowerCase(), timelimit);
             } else {
                 code = Integer.parseInt(redis.hget(name, "code"));
             }
@@ -131,6 +132,8 @@ public class DisLinkMC {
         int version;
         Redis redis;
         MessageList message;
+
+        OTP otp;
     }
 
 
@@ -142,6 +145,10 @@ public class DisLinkMC {
     static class MessageList {
         String onsuccess;
         String onfail;
+    }
+
+    static class OTP {
+        long time;
     }
 }
 

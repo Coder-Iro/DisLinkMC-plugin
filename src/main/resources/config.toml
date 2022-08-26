@@ -11,4 +11,7 @@ url = "redis://localhost:6379"
 onsuccess = "{0}''s code : {2}"
 onfail = "Fail to generate {0}''s code"
 
+[otp]
+# OTP Code time limit in seconds
+time = 180
 
