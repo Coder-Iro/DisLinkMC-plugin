@@ -78,7 +78,9 @@ public class DisLinkMC {
     private Config loadConfig(Path path) {
         File folder = path.toFile();
         File file = new File(folder, "config.toml");
-        assert file.getParentFile().exists() || file.getParentFile().mkdirs();
+        if (!file.getParentFile().exists()) {
+            file.getParentFile().mkdirs();
+        }
 
         if (!file.exists()) {
             logger.info("Config file doesn't exist. Generating Default Config");
