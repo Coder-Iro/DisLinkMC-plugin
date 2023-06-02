@@ -1,8 +1,13 @@
+@file:Suppress("VulnerableLibrariesLocal")
+
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    java
-    id("com.github.johnrengelman.shadow") version "7.1.2"
+    kotlin("jvm") version "1.8.21"
+    kotlin("kapt") version "1.8.21"
+    id("com.github.johnrengelman.shadow") version "8.1.1"
+
 }
 
 group = "xyz.irodev"
@@ -10,26 +15,38 @@ version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
-    maven {
-        name = "velocity"
-        url = uri("https://nexus.velocitypowered.com/repository/maven-public/")
-    }
+    maven("https://repo.papermc.io/repository/maven-public/")
 }
 
 dependencies {
-    compileOnly("com.velocitypowered:velocity-api:3.0.1")
+    compileOnly("com.velocitypowered:velocity-api:3.1.1")
     implementation("io.lettuce:lettuce-core:6.2.0.RELEASE")
-    implementation("com.j256.two-factor-auth:two-factor-auth:1.3")
-    annotationProcessor("com.velocitypowered:velocity-api:3.0.1")
+    kapt("com.velocitypowered:velocity-api:3.1.1")
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+}
+
+kotlin {
+    jvmToolchain(11)
+}
+
+kapt {
+    includeCompileClasspath = false
 }
 
 tasks {
     withType<ShadowJar> {
-        listOf("com.j256.twofactorauth", "io.lettuce.core").forEach { pattern ->
-            relocate(pattern, "xyz.irodev.dislinkmc.shaded.$pattern")
+        isEnableRelocation = true
+        relocationPrefix = "xyz.irodev.dislinkmc.shaded"
+    }
+    withType<KotlinCompile> {
+        kotlinOptions {
+            jvmTarget = JavaVersion.VERSION_11.toString()
         }
     }
     build {
-        finalizedBy(shadowJar)
+        dependsOn(shadowJar)
     }
 }
