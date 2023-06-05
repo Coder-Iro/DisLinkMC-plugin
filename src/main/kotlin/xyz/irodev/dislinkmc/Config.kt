@@ -29,7 +29,8 @@ internal data class Config(
     )
 
     data class MessageList(
-        val onSuccess: String = "{0}''s code : {2}", val onFail: String = "Fail to generate {0}''s code"
+        val onSuccess: String = "{0}''s code : {2}",
+        val onFail: String = "Fail to generate {0}''s code"
     )
 
     data class OTP(
@@ -40,9 +41,9 @@ internal data class Config(
         internal fun loadConfig(path: Path, logger: Logger): Config {
             val folder = path.toFile()
             val file = File(folder, "config.toml")
-            if (!folder.exists()) {
-                folder.mkdirs()
-            }
+
+            if (!folder.exists()) folder.mkdirs()
+
             if (!file.exists()) {
                 logger.info("xyz.irodev.dislinkmc.Config file missing. Generating Default xyz.irodev.dislinkmc.Config")
                 try {

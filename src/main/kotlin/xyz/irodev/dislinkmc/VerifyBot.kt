@@ -36,16 +36,12 @@ internal class VerifyBot(
     private val nicknameRegex = Regex("\\w{3,16}")
 
     override fun onUserUpdateName(event: UserUpdateNameEvent) {
-        val member = guild.getMember(event.user)
-        if (member != null) {
-            if (member.nickname == null) {
+        guild.getMember(event.user)?.takeIf {it.nickname == null}?.let{ member ->
                 logger.info("Member nick changed: ${event.oldName} => ${event.newName}}")
                 try {
                     member.modifyNickname(event.oldName).queue()
                 } catch (e: HierarchyException) {
                     logger.error("Nickname change failed due to Not Enough Permission")
-                }
-
             }
         }
     }
@@ -55,8 +51,7 @@ internal class VerifyBot(
         logger.info("Member left: ${member.user.name}#${member.user.discriminator} (${member.id})")
         if (newbieRole !in member.roles) {
             transaction(database) {
-                val account = Account.findById(member.id.toULong())
-                if (account != null) {
+                Account.findById(member.id.toULong())?.let { account ->
                     logger.info("Verify data exists. Deleting data...")
                     account.delete()
                 }
@@ -80,25 +75,39 @@ internal class VerifyBot(
         when (event.componentId) {
             "dislinkmc:verify" -> {
                 val nameInput = TextInput.create("name", "닉네임", TextInputStyle.SHORT)
-                nameInput.minLength = 3
-                nameInput.maxLength = 16
-                nameInput.placeholder = "마인크래프트 닉네임"
+                    .apply {
+                        minLength = 3
+                        maxLength = 16
+                        placeholder = "마인크래프트 닉네임"
+                    }
+
                 val codeInput = TextInput.create("otpcode", "인증번호", TextInputStyle.SHORT)
-                codeInput.minLength = 6
-                codeInput.maxLength = 7
-                codeInput.placeholder = "000 000"
+                    .apply {
+                        minLength = 6
+                        maxLength = 7
+                        placeholder = "000 000"
+                    }
+
                 event.replyModal(
-                    Modal.create("verify", "인증하기").addActionRow(nameInput.build()).addActionRow(codeInput.build())
+                    Modal.create("verify", "인증하기")
+                        .addActionRow(nameInput.build())
+                        .addActionRow(codeInput.build())
                         .build()
                 ).queue()
             }
 
             "dislinkmc:unverify" -> {
                 val confirmInput = TextInput.create("confirm", "인증을 해제하시려면 본인의 닉네임을 정확히 입력해주세요.", TextInputStyle.SHORT)
-                confirmInput.placeholder = name
-                confirmInput.minLength = name.length
-                confirmInput.maxLength = name.length
-                event.replyModal(Modal.create("unverify", "인증 해제").addActionRow(confirmInput.build()).build()).queue()
+                    .apply {
+                        placeholder = name
+                        minLength = name.length
+                        maxLength = name.length
+                    }
+                event.replyModal(
+                    Modal.create("unverify", "인증 해제")
+                        .addActionRow(confirmInput.build())
+                        .build()
+                ).queue()
             }
         }
     }
@@ -110,34 +119,40 @@ internal class VerifyBot(
             "verify" -> {
                 val name = event.interaction.values[0].asString
                 val otpcode = event.interaction.values[1].asString
+
                 logger.info("Verify Request: User: ${member.user.name}#${member.user.discriminator} (${member.id})")
                 logger.info("Input: Name: $name Code: $otpcode")
-                if (!otpRegex.matches(otpcode)) {
-                    logger.warn("\"${otpcode}\" is Invaild code. Verification Failed")
-                    event.reply("인증 코드가 유효하지 않습니다.").setEphemeral(true).queue()
-                } else if (!nicknameRegex.matches(name)) {
-                    logger.warn("\"$name\" is Invaild Minecraft nickname. Verification Failed")
-                    event.reply(
-                        "유효하지 않은 닉네임입니다. 다시 한번 확인해주세요."
-                    ).setEphemeral(true).queue()
-                } else {
-                    val codeset = codeStore.getIfPresent(event.interaction.values[0].asString.lowercase())
-                    if (codeset != null) {
-                        val intcode = otpcode.replace(" ", "").toInt()
-                        Timer().schedule(5000) {
-                            event.hook.editOriginal(codeset.code.toString())
-                                .queue()
-                        }
-                    } else {
-                        logger.warn("\"${name}\" key doesn't exist in codeStore. Verification Failed")
+
+                when {
+                    !otpRegex.matches(otpcode) -> {
+                        logger.warn("\"${otpcode}\" is Invaild code. Verification Failed")
+                        event.reply("인증 코드가 유효하지 않습니다.").setEphemeral(true).queue()
+                    }
+                    !nicknameRegex.matches(name) -> {
+                        logger.warn("\"$name\" is Invaild Minecraft nickname. Verification Failed")
                         event.reply(
                             "유효하지 않은 닉네임입니다. 다시 한번 확인해주세요."
                         ).setEphemeral(true).queue()
+                    }
+                    else -> {
+                        val codeset = codeStore.getIfPresent(event.interaction.values[0].asString.lowercase())
+                        codeset?.let {
+                            val intcode = otpcode.replace(" ", "").toInt()
+                            Timer().schedule(5000) {
+                                event.hook.editOriginal(it.code.toString()).queue()
+                            }
+                        } ?: run {
+                            logger.warn("\"${name}\" key doesn't exist in codeStore. Verification Failed")
+                            event.reply("유효하지 않은 닉네임입니다. 다시 한번 확인해주세요.")
+                                .setEphemeral(true)
+                                .queue()
+                        }
                     }
                 }
             }
 
             "unverify" -> {
+
             }
         }
     }
@@ -145,9 +160,9 @@ internal class VerifyBot(
     object LinkedAccounts : IdTable<ULong>("linked_account") {
         @OptIn(ExperimentalUnsignedTypes::class)
         override val id: Column<EntityID<ULong>> = ulong("discord").entityId()
-        val mcuuid = uuid("mcuuid").uniqueIndex()
+        val mcuuid = uuid("mcuuid")
+            .uniqueIndex(customIndexName="mcuuid_index")
     }
-
 
     class Account(id: EntityID<ULong>) : Entity<ULong>(id) {
         companion object : EntityClass<ULong, Account>(LinkedAccounts)
