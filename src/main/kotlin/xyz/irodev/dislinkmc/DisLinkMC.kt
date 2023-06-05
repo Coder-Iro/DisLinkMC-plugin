@@ -6,9 +6,12 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import com.google.inject.Inject
 import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.connection.LoginEvent
+import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.annotation.DataDirectory
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
+import net.dv8tion.jda.api.requests.GatewayIntent
+import net.dv8tion.jda.api.utils.MemberCachePolicy
 import net.kyori.adventure.text.Component
 import org.slf4j.Logger
 import java.nio.file.Path
@@ -30,18 +33,19 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
         onFail = MessageFormat(config.message.onFail)
         codeStore = Caffeine.newBuilder().expireAfterWrite(config.otp.time, TimeUnit.SECONDS).build()
         discord = try {
-            JDABuilder.createDefault(config.discord.token).build()
-
+            JDABuilder.createDefault(config.discord.token).enableIntents(GatewayIntent.GUILD_MEMBERS)
+                .setMemberCachePolicy(MemberCachePolicy.ALL).build()
         } catch (e: IllegalArgumentException) {
             logger.error("Invaild Discord Bot Token. Please Check in config.toml")
             null
         }
         if (discord != null) {
+            discord.awaitReady()
             val guild = discord.getGuildById(config.discord.guild)
-            if (guild != null)
+            if (guild != null) {
                 discord.addEventListener(VerifyBot(guild))
-            else
-                logger.error("Invaild Discord Guild ID. Please Check in config.toml")
+                logger.info(guild.toString())
+            } else logger.error("Invaild Discord Guild ID. Please Check in config.toml")
         }
     }
 
@@ -73,8 +77,14 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
         }
     }
 
+    @Subscribe
+    private fun onExit(@Suppress("UNUSED_PARAMETER") event: ProxyShutdownEvent) {
+        discord?.shutdown()
+        discord?.awaitShutdown()
+    }
 
-    data class VerifyCodeSet(
+
+    internal data class VerifyCodeSet(
         val name: String = "", val uuid: UUID = UUID.randomUUID(), val code: Int = 0
     )
 
