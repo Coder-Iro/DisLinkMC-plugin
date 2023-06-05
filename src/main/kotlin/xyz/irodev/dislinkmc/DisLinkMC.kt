@@ -1,6 +1,5 @@
 package xyz.irodev.dislinkmc
 
-import Config
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.google.inject.Inject
@@ -13,6 +12,11 @@ import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.MemberCachePolicy
 import net.kyori.adventure.text.Component
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.StdOutSqlLogger
+import org.jetbrains.exposed.sql.addLogger
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import java.nio.file.Path
 import java.text.MessageFormat
@@ -26,6 +30,7 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
     private val onSuccess: MessageFormat
     private val onFail: MessageFormat
     private val discord: JDA?
+    private val database: Database
 
     init {
         val config = Config.loadConfig(dataDirectory, logger)
@@ -39,14 +44,30 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
             logger.error("Invaild Discord Bot Token. Please Check in config.toml")
             null
         }
+        database = Database.connect(
+            config.mariadb.url,
+            "org.mariadb.jdbc.Driver",
+            config.mariadb.user,
+            config.mariadb.password
+        )
+        transaction(database) {
+            addLogger(StdOutSqlLogger)
+            SchemaUtils.create(VerifyBot.LinkedAccounts)
+        }
         if (discord != null) {
             discord.awaitReady()
-            val guild = discord.getGuildById(config.discord.guild)
+            val guild = discord.getGuildById(config.discord.guildID)
             if (guild != null) {
-                discord.addEventListener(VerifyBot(guild))
                 logger.info(guild.toString())
+                val newbieRole = guild.getRoleById(config.discord.newbieRoleID)
+                if (newbieRole != null) {
+                    logger.info(newbieRole.toString())
+                    discord.addEventListener(VerifyBot(guild, newbieRole, logger, codeStore, database))
+                } else logger.error("Invaild Newbie Role ID. Please Check in config.toml")
             } else logger.error("Invaild Discord Guild ID. Please Check in config.toml")
         }
+
+
     }
 
     @Subscribe
@@ -60,7 +81,7 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
                 codeset = VerifyCodeSet(name, uuid, (0..999999).random())
                 codeStore.put(name.lowercase(), codeset)
             }
-            println(codeset)
+            logger.info(codeset.toString())
             player.disconnect(
                 Component.text(
                     onSuccess.format(
@@ -79,8 +100,10 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
 
     @Subscribe
     private fun onExit(@Suppress("UNUSED_PARAMETER") event: ProxyShutdownEvent) {
-        discord?.shutdown()
-        discord?.awaitShutdown()
+        if (discord != null) {
+            discord.shutdown()
+            discord.awaitShutdown()
+        }
     }
 
 
