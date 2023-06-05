@@ -1,0 +1,10 @@
+{
+  "id": "dislinkmc",
+  "name": "DisLinkMC",
+  "version": "1.0.0-SNAPSHOT",
+  "authors": [
+    "Coder-Iro"
+  ],
+  "dependencies": [],
+  "main": "xyz.irodev.dislinkmc.DisLinkMC"
+}

@@ -5,23 +5,24 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("jvm") version "1.8.21"
-    kotlin("kapt") version "1.8.21"
     id("com.github.johnrengelman.shadow") version "8.1.1"
-
 }
 
 group = "xyz.irodev"
-version = "1.0-SNAPSHOT"
+version = "1.0.0"
 
 repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
 }
 
+
 dependencies {
     compileOnly("com.velocitypowered:velocity-api:3.1.1")
-    implementation("io.lettuce:lettuce-core:6.2.0.RELEASE")
-    kapt("com.velocitypowered:velocity-api:3.1.1")
+    implementation("com.github.ben-manes.caffeine:caffeine:3.1.6")
+    implementation("net.dv8tion:JDA:5.0.0-beta.9") {
+        exclude(module = "opus-java")
+    }
 }
 
 java {
@@ -32,14 +33,12 @@ kotlin {
     jvmToolchain(11)
 }
 
-kapt {
-    includeCompileClasspath = false
-}
-
 tasks {
     withType<ShadowJar> {
-        isEnableRelocation = true
-        relocationPrefix = "xyz.irodev.dislinkmc.shaded"
+        dependencies {
+            exclude(dependency("org.slf4j:slf4j-api"))
+        }
+        minimize()
     }
     withType<KotlinCompile> {
         kotlinOptions {

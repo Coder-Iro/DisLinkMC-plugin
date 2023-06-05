@@ -1,35 +1,48 @@
 package xyz.irodev.dislinkmc
 
+import Config
+import com.github.benmanes.caffeine.cache.Cache
+import com.github.benmanes.caffeine.cache.Caffeine
 import com.google.inject.Inject
-import com.moandjiezana.toml.Toml
 import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.connection.LoginEvent
-import com.velocitypowered.api.plugin.Plugin
 import com.velocitypowered.api.plugin.annotation.DataDirectory
-import io.lettuce.core.RedisClient
+import net.dv8tion.jda.api.JDA
+import net.dv8tion.jda.api.JDABuilder
 import net.kyori.adventure.text.Component
 import org.slf4j.Logger
-import java.io.File
-import java.io.IOException
-import java.nio.file.Files
 import java.nio.file.Path
 import java.text.MessageFormat
+import java.util.*
+import java.util.concurrent.TimeUnit
 
 
-@Plugin(id = "dislinkmc", name = "DisLinkMC", version = "1.0.0-SNAPSHOT", authors = ["Coder-Iro"])
+@Suppress("unused")
 class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory private val dataDirectory: Path) {
-    private val redisClient: RedisClient
+    private val codeStore: Cache<String, VerifyCodeSet>
     private val onSuccess: MessageFormat
     private val onFail: MessageFormat
-    private val timelimit: Long
-
+    private val discord: JDA?
 
     init {
-        val config = loadConfig(dataDirectory)
+        val config = Config.loadConfig(dataDirectory, logger)
         onSuccess = MessageFormat(config.message.onSuccess)
         onFail = MessageFormat(config.message.onFail)
-        redisClient = RedisClient.create(config.redis.url)
-        timelimit = config.otp.time
+        codeStore = Caffeine.newBuilder().expireAfterWrite(config.otp.time, TimeUnit.SECONDS).build()
+        discord = try {
+            JDABuilder.createDefault(config.discord.token).build()
+
+        } catch (e: IllegalArgumentException) {
+            logger.error("Invaild Discord Bot Token. Please Check in config.toml")
+            null
+        }
+        if (discord != null) {
+            val guild = discord.getGuildById(config.discord.guild)
+            if (guild != null)
+                discord.addEventListener(VerifyBot(guild))
+            else
+                logger.error("Invaild Discord Guild ID. Please Check in config.toml")
+        }
     }
 
     @Subscribe
@@ -38,76 +51,31 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
         val name = player.username
         val uuid = player.uniqueId
         try {
-            redisClient.connect().use { connection ->
-                val redis = connection.sync()
-                val code: Int
-                if (redis.exists(name) == 0L) {
-                    code = (0..999999).random()
-                    val data = HashMap<String, String>()
-                    data["UUID"] = uuid.toString()
-                    data["code"] = code.toString()
-                    data["realname"] = name
-                    redis.hset(name.lowercase(), data)
-                    redis.expire(name.lowercase(), timelimit)
-                } else {
-                    code = redis.hget(name, "code").toInt()
-                }
-                player.disconnect(
-                    Component.text(
-                        onSuccess.format(
-                            arrayOf<String>(
-                                name, uuid.toString(), String.format("%06d", code)
-                            )
+            var codeset: VerifyCodeSet? = codeStore.getIfPresent(name.lowercase())
+            if (codeset == null) {
+                codeset = VerifyCodeSet(name, uuid, (0..999999).random())
+                codeStore.put(name.lowercase(), codeset)
+            }
+            println(codeset)
+            player.disconnect(
+                Component.text(
+                    onSuccess.format(
+                        arrayOf<String>(
+                            name, uuid.toString(), String.format("%03d %03d", codeset.code / 1000, codeset.code % 1000)
                         )
                     )
                 )
-            }
+            )
+
         } catch (e: Exception) {
             player.disconnect(Component.text(onFail.format(arrayOf<String>(name, uuid.toString()))))
             e.printStackTrace()
         }
     }
 
-    private fun loadConfig(path: Path): Config {
-        val folder = path.toFile()
-        val file = File(folder, "config.toml")
-        if (!folder.exists()) {
-            folder.mkdirs()
-        }
-        if (!file.exists()) {
-            logger.info("Config file missing. Generating Default Config")
-            try {
-                javaClass.getResourceAsStream("/" + file.name).use { input ->
-                    if (input != null) {
-                        Files.copy(input, file.toPath())
-                    } else {
-                        logger.error("Default Config File missing. Is it corrupted?")
-                        return Config()
-                    }
-                }
-            } catch (exception: IOException) {
-                exception.printStackTrace()
-                return Config()
-            }
-        }
-        return Toml().read(file).to(Config::class.java)
-    }
 
-    data class Config(
-        var version: Int = 1, var redis: Redis = Redis(), var message: MessageList = MessageList(), var otp: OTP = OTP()
-    ) {
-        data class Redis(
-            var url: String = "redis://localhost:6379"
-        )
-
-        data class MessageList(
-            var onSuccess: String = "{0}''s code : {2}", var onFail: String = "Fail to generate {0}''s code"
-        )
-
-        data class OTP(
-            var time: Long = 180L
-        )
-    }
-
+    data class VerifyCodeSet(
+        val name: String = "", val uuid: UUID = UUID.randomUUID(), val code: Int = 0
+    )
 
 }
