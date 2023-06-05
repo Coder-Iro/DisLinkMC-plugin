@@ -26,48 +26,50 @@ import java.util.concurrent.TimeUnit
 
 @Suppress("unused")
 class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory private val dataDirectory: Path) {
-    private val codeStore: Cache<String, VerifyCodeSet>
-    private val onSuccess: MessageFormat
-    private val onFail: MessageFormat
-    private val discord: JDA?
-    private val database: Database
 
-    init {
-        val config = Config.loadConfig(dataDirectory, logger)
-        onSuccess = MessageFormat(config.message.onSuccess)
-        onFail = MessageFormat(config.message.onFail)
-        codeStore = Caffeine.newBuilder().expireAfterWrite(config.otp.time, TimeUnit.SECONDS).build()
-        discord = try {
-            JDABuilder.createDefault(config.discord.token).enableIntents(GatewayIntent.GUILD_MEMBERS)
-                .setMemberCachePolicy(MemberCachePolicy.ALL).build()
+    private val config = Config.loadConfig(dataDirectory, logger)
+
+    private val onSuccess: MessageFormat = MessageFormat(config.message.onSuccess)
+
+    private val onFail: MessageFormat = MessageFormat(config.message.onFail)
+
+    private val codeStore: Cache<String, VerifyCodeSet> = Caffeine.newBuilder()
+        .expireAfterWrite(config.otp.time, TimeUnit.SECONDS)
+        .build()
+
+    private val database: Database = Database.connect(
+        config.mariadb.url,
+        "org.mariadb.jdbc.Driver",
+        config.mariadb.user,
+        config.mariadb.password
+    )
+
+    private val discord: JDA? = config.discord.token.let { token ->
+        try {
+            JDABuilder.createDefault(token).enableIntents(GatewayIntent.GUILD_MEMBERS)
+                .setMemberCachePolicy(MemberCachePolicy.ALL).build().apply {
+                    awaitReady()
+                    getGuildById(config.discord.guildID)?.let { guild ->
+                        logger.info(guild.toString())
+                        guild.getRoleById(config.discord.newbieRoleID)?.let { newbieRole ->
+                            logger.info(newbieRole.toString())
+                            addEventListener(
+                                VerifyBot(guild, newbieRole, logger, codeStore, database)
+                            )
+                        } ?: logger.error("Invalid Newbie Role ID. Please check config.toml")
+                    } ?: logger.error("Invalid Discord Guild ID. Please check config.toml")
+                }
         } catch (e: IllegalArgumentException) {
-            logger.error("Invaild Discord Bot Token. Please Check in config.toml")
+            logger.error("Invalid Discord Bot Token. Please check config.toml")
             null
         }
-        database = Database.connect(
-            config.mariadb.url,
-            "org.mariadb.jdbc.Driver",
-            config.mariadb.user,
-            config.mariadb.password
-        )
+    }
+
+    init {
         transaction(database) {
             addLogger(StdOutSqlLogger)
             SchemaUtils.create(VerifyBot.LinkedAccounts)
         }
-        if (discord != null) {
-            discord.awaitReady()
-            val guild = discord.getGuildById(config.discord.guildID)
-            if (guild != null) {
-                logger.info(guild.toString())
-                val newbieRole = guild.getRoleById(config.discord.newbieRoleID)
-                if (newbieRole != null) {
-                    logger.info(newbieRole.toString())
-                    discord.addEventListener(VerifyBot(guild, newbieRole, logger, codeStore, database))
-                } else logger.error("Invaild Newbie Role ID. Please Check in config.toml")
-            } else logger.error("Invaild Discord Guild ID. Please Check in config.toml")
-        }
-
-
     }
 
     @Subscribe
@@ -86,7 +88,9 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
                 Component.text(
                     onSuccess.format(
                         arrayOf<String>(
-                            name, uuid.toString(), String.format("%03d %03d", codeset.code / 1000, codeset.code % 1000)
+                            name,
+                            uuid.toString(),
+                            String.format("%03d %03d", codeset.code / 1000, codeset.code % 1000)
                         )
                     )
                 )
@@ -100,15 +104,17 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
 
     @Subscribe
     private fun onExit(@Suppress("UNUSED_PARAMETER") event: ProxyShutdownEvent) {
-        if (discord != null) {
-            discord.shutdown()
-            discord.awaitShutdown()
+        discord?.run {
+            shutdown()
+            awaitShutdown()
         }
     }
 
 
     internal data class VerifyCodeSet(
-        val name: String = "", val uuid: UUID = UUID.randomUUID(), val code: Int = 0
+        val name: String = "",
+        val uuid: UUID = UUID.randomUUID(),
+        val code: Int = 0
     )
 
 }

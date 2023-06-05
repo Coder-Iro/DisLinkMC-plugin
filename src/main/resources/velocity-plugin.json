@@ -5,6 +5,8 @@
   "authors": [
     "Coder-Iro"
   ],
-  "dependencies": [],
+  "dependencies": [
+
+  ],
   "main": "xyz.irodev.dislinkmc.DisLinkMC"
 }
