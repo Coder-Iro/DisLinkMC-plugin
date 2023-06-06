@@ -21,8 +21,6 @@ import org.jetbrains.exposed.sql.Column
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
-import java.util.*
-import kotlin.concurrent.schedule
 
 internal class VerifyBot(
     private val guild: Guild,
@@ -36,12 +34,12 @@ internal class VerifyBot(
     private val nicknameRegex = Regex("\\w{3,16}")
 
     override fun onUserUpdateName(event: UserUpdateNameEvent) {
-        guild.getMember(event.user)?.takeIf {it.nickname == null}?.let{ member ->
-                logger.info("Member nick changed: ${event.oldName} => ${event.newName}}")
-                try {
-                    member.modifyNickname(event.oldName).queue()
-                } catch (e: HierarchyException) {
-                    logger.error("Nickname change failed due to Not Enough Permission")
+        guild.getMember(event.user)?.takeIf { it.nickname == null }?.let { member ->
+            logger.info("Member nick changed: ${event.oldName} => ${event.newName}}")
+            try {
+                member.modifyNickname(event.oldName).queue()
+            } catch (e: HierarchyException) {
+                logger.error("Nickname change failed due to Not Enough Permission")
             }
         }
     }
@@ -114,7 +112,7 @@ internal class VerifyBot(
 
     override fun onModalInteraction(event: ModalInteractionEvent) {
         val member = event.member ?: return
-        event.deferReply(true).queue()
+        event.deferReply(true).setEphemeral(true).queue()
         when (event.modalId) {
             "verify" -> {
                 val name = event.interaction.values[0].asString
@@ -126,33 +124,68 @@ internal class VerifyBot(
                 when {
                     !otpRegex.matches(otpcode) -> {
                         logger.warn("\"${otpcode}\" is Invaild code. Verification Failed")
-                        event.reply("인증 코드가 유효하지 않습니다.").setEphemeral(true).queue()
+                        event.hook.sendMessage("인증 코드가 유효하지 않습니다.").setEphemeral(true).queue()
                     }
+
                     !nicknameRegex.matches(name) -> {
                         logger.warn("\"$name\" is Invaild Minecraft nickname. Verification Failed")
-                        event.reply(
-                            "유효하지 않은 닉네임입니다. 다시 한번 확인해주세요."
-                        ).setEphemeral(true).queue()
+                        event.hook.sendMessage("유효하지 않은 닉네임입니다. 다시 한번 확인해주세요.").setEphemeral(true).queue()
                     }
+
                     else -> {
-                        val codeset = codeStore.getIfPresent(event.interaction.values[0].asString.lowercase())
-                        codeset?.let {
+                        codeStore.getIfPresent(event.interaction.values[0].asString.lowercase())?.let {
                             val intcode = otpcode.replace(" ", "").toInt()
-                            Timer().schedule(5000) {
-                                event.hook.editOriginal(it.code.toString()).queue()
+                            if (it.code == intcode) {
+                                transaction(database) {
+                                    val existingAccounts = Account.find { LinkedAccounts.mcuuid eq it.uuid }
+                                    if (existingAccounts.empty()) {
+                                        Account.new(id = member.id.toULong()) { mcuuid = it.uuid }
+                                        logger.info("Verification succeeded.")
+                                        try {
+                                            guild.removeRoleFromMember(member, newbieRole)
+                                        } catch (e: HierarchyException) {
+                                            logger.warn("Role removal failed due to Missing Permission")
+                                            event.hook.sendMessage(
+                                                "권한 부족으로 인해 역할 제거가 실패하였습니다."
+                                            ).setEphemeral(true).queue()
+                                        }
+                                        try {
+                                            member.modifyNickname(it.name)
+                                        } catch (e: HierarchyException) {
+                                            logger.warn("Nickname change failed due to Missing Permission")
+                                            event.hook.sendMessage(
+                                                "권한 부족으로 인해 닉네임 변경이 실패하였습니다."
+                                            ).setEphemeral(true).queue()
+                                        }
+                                        event.hook.sendMessage(
+                                            "${it.name} (${it.uuid}) 계정으로 인증에 성공하였습니다."
+                                        ).setEphemeral(true).queue()
+                                    } else {
+                                        logger.warn(
+                                            "Minecraft account ${it.uuid} already exist in database as Discord id: ${
+                                                existingAccounts.first().id.value
+                                            }. Verification Failed"
+                                        )
+                                        event.hook.sendMessage("${it.name} (${it.uuid}) 계정으로 인증된 다른 디스코드 계정이 있습니다. 본인의 계정이 아니라면 관리자에게 문의해주세요.")
+                                            .setEphemeral(true).queue()
+                                    }
+                                }
+                            } else {
+                                logger.warn(
+                                    "\"Input: $intcode\" != Expected: ${it.code} Code mismatch. Verification Failed"
+                                )
+                                event.hook.sendMessage("인증 코드가 일치하지 않습니다. 다시 한번 확인해주세요.").setEphemeral(true).queue()
                             }
                         } ?: run {
                             logger.warn("\"${name}\" key doesn't exist in codeStore. Verification Failed")
-                            event.reply("유효하지 않은 닉네임입니다. 다시 한번 확인해주세요.")
-                                .setEphemeral(true)
-                                .queue()
+                            event.hook.sendMessage("유효하지 않은 닉네임입니다. 다시 한번 확인해주세요.").setEphemeral(true).queue()
                         }
                     }
                 }
             }
 
             "unverify" -> {
-
+                // TODO: 인증해제
             }
         }
     }
@@ -161,7 +194,7 @@ internal class VerifyBot(
         @OptIn(ExperimentalUnsignedTypes::class)
         override val id: Column<EntityID<ULong>> = ulong("discord").entityId()
         val mcuuid = uuid("mcuuid")
-            .uniqueIndex(customIndexName="mcuuid_index")
+            .uniqueIndex()
     }
 
     class Account(id: EntityID<ULong>) : Entity<ULong>(id) {
