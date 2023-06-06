@@ -5,6 +5,8 @@ version = 2
 token = "token"
 guildID = 0
 newbieRoleID = 0
+verifyChannelID = 0
+unverifyChannelID = 0
 
 [mariadb]
 url = "jdbc:mariadb://localhost:3306/dislinkmc"
@@ -13,7 +15,8 @@ password = "password"
 
 [message]
 # Placeholder: username : {0}, UUID : {1}, code: {2}
-# Message uses java's MessageFormat.
+# Message on~ uses java's MessageFormat.
+# So, you need to escape some character like ' { }
 # https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/text/MessageFormat.html
 prefix = "§3§lDislinkMC Verify System§r"
 onSuccess = "§e{0}''s code : {2}

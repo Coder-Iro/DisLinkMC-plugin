@@ -19,7 +19,9 @@ internal data class Config(
     data class Discord(
         val token: String = "",
         val guildID: Long = 0,
-        val newbieRoleID: Long = 0
+        val newbieRoleID: Long = 0,
+        val verifyChannelID: Long = 0,
+        val unverifyChannelID: Long = 0,
     )
 
     data class MariaDB(

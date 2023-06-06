@@ -169,7 +169,30 @@ internal class VerifyBot(
             }
 
             "unverify" -> {
-                // TODO: 인증해제
+                if (newbieRole in member.roles) {
+                    event.hook.sendMessage("인증된 유저만 인증 해제할 수 있습니다.").setEphemeral(true).queue()
+                } else if (event.interaction.values[0].asString == member.effectiveName) {
+                    transaction(database) {
+                        val account = Account.findById(member.id.toULong())
+                        if (account != null) {
+                            account.delete()
+                            guild.addRoleToMember(member, newbieRole)
+                            logger.info("Unverify account succeeded")
+                            event.hook.sendMessage(
+                                "인증 해제되었습니다."
+                            ).setEphemeral(true).queue()
+                        } else {
+                            logger.error("Cannot find verify data")
+                            event.hook.sendMessage(
+                                "인증 해제에 실패했습니다. 관리자에게 문의해주세요."
+                            ).setEphemeral(true).queue()
+                        }
+                    }
+                } else {
+                    event.hook.sendMessage(
+                        "닉네임이 일치하지 않습니다. 다시 시도해주세요."
+                    ).setEphemeral(true).queue()
+                }
             }
         }
     }

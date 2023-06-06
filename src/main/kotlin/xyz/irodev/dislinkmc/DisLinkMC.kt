@@ -18,6 +18,7 @@ import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
+import java.io.File
 import java.nio.file.Path
 import java.text.MessageFormat
 import java.util.*
@@ -70,6 +71,11 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
     }
 
     init {
+        val file = File(dataDirectory.toFile(), ".inited")
+        if (!file.exists()) {
+            logger.warn("First run detected. Initializing...")
+            // val verifyChannel = guild
+        }
         transaction(database) {
             addLogger(StdOutSqlLogger)
             SchemaUtils.create(VerifyBot.LinkedAccounts)
