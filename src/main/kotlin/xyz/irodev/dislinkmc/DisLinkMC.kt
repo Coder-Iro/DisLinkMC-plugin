@@ -29,7 +29,7 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
 
     private val config = Config.loadConfig(dataDirectory, logger)
 
-    private val prefix = if (config.message.prefix == "") "" else "${config.message.prefix}\n"
+    private val prefix = config.message.prefix.takeIf { it.isNotEmpty() }?.let { "$it\n" } ?: ""
 
     private val onSuccess: MessageFormat = MessageFormat(config.message.onSuccess)
 

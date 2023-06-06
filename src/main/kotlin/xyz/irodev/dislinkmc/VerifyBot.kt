@@ -143,24 +143,17 @@ internal class VerifyBot(
                                 logger.info("Verification succeeded.")
                                 try {
                                     guild.removeRoleFromMember(member, newbieRole)
-                                } catch (e: HierarchyException) {
-                                    logger.warn("Role removal failed due to Missing Permission")
-                                    event.hook.sendMessage(
-                                        "권한 부족으로 인해 역할 제거가 실패하였습니다."
-                                    ).setEphemeral(true).queue()
-                                }
-                                try {
+
                                     member.modifyNickname(it.name)
                                 } catch (e: HierarchyException) {
-                                    logger.warn("Nickname change failed due to Missing Permission")
+                                    logger.warn("Either role removal or nickname change failed due to missing permission.")
                                     event.hook.sendMessage(
-                                        "권한 부족으로 인해 닉네임 변경이 실패하였습니다."
+                                        "권한 부족으로 인해 닉네임 변경 또는 역할 제거가 실패하였습니다."
                                     ).setEphemeral(true).queue()
                                 }
                                 event.hook.sendMessage(
                                     "${it.name} (${it.uuid}) 계정으로 인증에 성공하였습니다."
                                 ).setEphemeral(true).queue()
-
                             } else {
                                 logger.warn(
                                     "\"Input: $intcode\" != Expected: ${it.code} Code mismatch. Verification Failed"
