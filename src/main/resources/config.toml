@@ -2,25 +2,23 @@
 version = 2
 
 [discord]
-token = ""
+token = "token"
 guildID = 0
 newbieRoleID = 0
 
 [mariadb]
 url = "jdbc:mariadb://localhost:3306/dislinkmc"
 user = "root"
-password = "mypassword"
+password = "password"
 
 [message]
 # Placeholder: username : {0}, UUID : {1}, code: {2}
 # Message uses java's MessageFormat.
 # https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/text/MessageFormat.html
-onSuccess = """§3§lDislinkMC Verify System§r
-
-§e{0}''s code : {2}"""
-onFail = """§3§lDislinkMC Verify System§r
-
-§eFail to generate {0}''s code"""
+prefix = "§3§lDislinkMC Verify System§r"
+onSuccess = "§e{0}''s code : {2}
+onFail = "§eFail to generate {0}''s code"
+onAlready = "{0} is already linked with Discord"
 
 [otp]
 # OTP Code time limit in seconds

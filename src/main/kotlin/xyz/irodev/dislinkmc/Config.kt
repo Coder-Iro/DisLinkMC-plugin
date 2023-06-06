@@ -29,8 +29,10 @@ internal data class Config(
     )
 
     data class MessageList(
+        val prefix: String = "",
         val onSuccess: String = "{0}''s code : {2}",
-        val onFail: String = "Fail to generate {0}''s code"
+        val onFail: String = "Fail to generate {0}''s code",
+        val onAlready: String = "{0} is already linked with Discord"
     )
 
     data class OTP(
