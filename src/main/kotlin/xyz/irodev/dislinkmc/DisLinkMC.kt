@@ -9,7 +9,6 @@ import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.annotation.DataDirectory
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
-import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.MemberCachePolicy
 import net.kyori.adventure.text.Component
@@ -50,22 +49,25 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
         config.mariadb.password
     )
 
-    private var guild: Guild? = null
-
     private val discord: JDA? = config.discord.token.let { token ->
         try {
             JDABuilder.createDefault(token).enableIntents(GatewayIntent.GUILD_MEMBERS)
                 .setMemberCachePolicy(MemberCachePolicy.ALL).build().apply {
                     awaitReady()
-                    getGuildById(config.discord.guildID)?.let { it ->
-                        logger.info(it.toString())
-                        it.getRoleById(config.discord.newbieRoleID)?.let { newbieRole ->
-                            logger.info(newbieRole.toString())
-                            addEventListener(
-                                VerifyBot(it, newbieRole, logger, codeStore, database)
-                            )
+                    getGuildById(config.discord.guildID)?.let { guild ->
+                        logger.info("Guild: $guild")
+                        guild.getRoleById(config.discord.newbieRoleID)?.let { newbieRole ->
+                            logger.info("Newbie Role: $newbieRole")
+                            guild.getGuildChannelById(config.discord.verifyChannelID)?.let { verifyChannel ->
+                                logger.info("Verify Channel: $verifyChannel")
+                                guild.getGuildChannelById(config.discord.unverifyChannelID)?.let { unverifyChannel ->
+                                    logger.info("Unverify Channel: $unverifyChannel")
+                                    addEventListener(
+                                        VerifyBot(guild, newbieRole, logger, codeStore, database)
+                                    )
+                                } ?: logger.error("Invalid Unverify Channel ID. Please check config.toml")
+                            } ?: logger.error("Invalid Verify Channel ID. Please check config.toml")
                         } ?: logger.error("Invalid Newbie Role ID. Please check config.toml")
-                        guild = it
                     } ?: logger.error("Invalid Discord Guild ID. Please check config.toml")
                 }
         } catch (e: IllegalArgumentException) {
@@ -75,11 +77,12 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
     }
 
     init {
+
         val file = File(dataDirectory.toFile(), ".inited")
         if (!file.exists()) {
             logger.warn("First run detected. Initializing...")
-            // val verifyChannel = guild
         }
+
         transaction(database) {
             addLogger(StdOutSqlLogger)
             SchemaUtils.create(VerifyBot.LinkedAccounts)

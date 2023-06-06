@@ -49,13 +49,13 @@ internal data class Config(
             if (!folder.exists()) folder.mkdirs()
 
             if (!file.exists()) {
-                logger.info("xyz.irodev.dislinkmc.Config file missing. Generating Default xyz.irodev.dislinkmc.Config")
+                logger.info("Config file missing. Generating Default Config")
                 try {
                     Config::class.java.getResourceAsStream("/" + file.name).use { input ->
                         if (input != null) {
                             Files.copy(input, file.toPath())
                         } else {
-                            logger.error("Default xyz.irodev.dislinkmc.Config File missing. Is it corrupted?")
+                            logger.error("Default Config File missing. Is it corrupted?")
                             return Config()
                         }
                     }
