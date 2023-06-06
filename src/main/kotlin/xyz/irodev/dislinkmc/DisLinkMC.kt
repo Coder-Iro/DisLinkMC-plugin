@@ -63,7 +63,16 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
                                 guild.getGuildChannelById(config.discord.unverifyChannelID)?.let { unverifyChannel ->
                                     logger.info("Unverify Channel: $unverifyChannel")
                                     addEventListener(
-                                        VerifyBot(guild, newbieRole, logger, codeStore, database)
+                                        VerifyBot(
+                                            guild,
+                                            newbieRole,
+                                            verifyChannel,
+                                            unverifyChannel,
+                                            logger,
+                                            codeStore,
+                                            database,
+                                            File(dataDirectory.toFile(), ".inited")
+                                        )
                                     )
                                 } ?: logger.error("Invalid Unverify Channel ID. Please check config.toml")
                             } ?: logger.error("Invalid Verify Channel ID. Please check config.toml")
@@ -77,11 +86,6 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
     }
 
     init {
-
-        val file = File(dataDirectory.toFile(), ".inited")
-        if (!file.exists()) {
-            logger.warn("First run detected. Initializing...")
-        }
 
         transaction(database) {
             addLogger(StdOutSqlLogger)

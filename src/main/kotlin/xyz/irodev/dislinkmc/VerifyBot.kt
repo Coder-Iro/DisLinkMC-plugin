@@ -3,6 +3,7 @@ package xyz.irodev.dislinkmc
 import com.github.benmanes.caffeine.cache.Cache
 import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.Role
+import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel
 import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
@@ -21,17 +22,27 @@ import org.jetbrains.exposed.sql.Column
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
+import java.io.File
 
 internal class VerifyBot(
     private val guild: Guild,
     private val newbieRole: Role,
+    private val verifyChannel: GuildChannel,
+    private val unverifyChannel: GuildChannel,
     private val logger: Logger,
     private val codeStore: Cache<String, DisLinkMC.VerifyCodeSet>,
-    private val database: Database
+    private val database: Database,
+    initFile: File
 ) : ListenerAdapter() {
 
     private val otpRegex = Regex("\\d{3} ?\\d{3}")
     private val nicknameRegex = Regex("\\w{3,16}")
+
+    init {
+        if (!initFile.exists()) {
+            logger.warn("First run detected. Initializing...")
+        }
+    }
 
     override fun onUserUpdateName(event: UserUpdateNameEvent) {
         guild.getMember(event.user)?.takeIf { it.nickname == null }?.let { member ->

@@ -19,7 +19,7 @@ password = "password"
 # So, you need to escape some character like ' { }
 # https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/text/MessageFormat.html
 prefix = "§3§lDislinkMC Verify System§r"
-onSuccess = "§e{0}''s code : {2}
+onSuccess = "§e{0}''s code : {2}"
 onFail = "§eFail to generate {0}''s code"
 onAlready = "{0} is already linked with Discord"
 
