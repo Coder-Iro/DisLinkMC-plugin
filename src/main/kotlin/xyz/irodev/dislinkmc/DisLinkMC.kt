@@ -9,6 +9,7 @@ import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.annotation.DataDirectory
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
+import net.dv8tion.jda.api.exceptions.InvalidTokenException
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.MemberCachePolicy
 import net.kyori.adventure.text.Component
@@ -23,6 +24,7 @@ import java.nio.file.Path
 import java.text.MessageFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
+import kotlin.reflect.KClass
 
 
 @Suppress("unused")
@@ -53,40 +55,29 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
         try {
             JDABuilder.createDefault(token).enableIntents(GatewayIntent.GUILD_MEMBERS)
                 .setMemberCachePolicy(MemberCachePolicy.ALL).build().apply {
+                    addEventListener(
+                        VerifyBot(
+                            config.discord,
+                            logger,
+                            codeStore,
+                            database,
+                            File(dataDirectory.toFile(), ".inited")
+                        )
+                    )
                     awaitReady()
-                    getGuildById(config.discord.guildID)?.let { guild ->
-                        logger.info("Guild: $guild")
-                        guild.getRoleById(config.discord.newbieRoleID)?.let { newbieRole ->
-                            logger.info("Newbie Role: $newbieRole")
-                            guild.getGuildChannelById(config.discord.verifyChannelID)?.let { verifyChannel ->
-                                logger.info("Verify Channel: $verifyChannel")
-                                guild.getGuildChannelById(config.discord.unverifyChannelID)?.let { unverifyChannel ->
-                                    logger.info("Unverify Channel: $unverifyChannel")
-                                    addEventListener(
-                                        VerifyBot(
-                                            guild,
-                                            newbieRole,
-                                            verifyChannel,
-                                            unverifyChannel,
-                                            logger,
-                                            codeStore,
-                                            database,
-                                            File(dataDirectory.toFile(), ".inited")
-                                        )
-                                    )
-                                } ?: logger.error("Invalid Unverify Channel ID. Please check config.toml")
-                            } ?: logger.error("Invalid Verify Channel ID. Please check config.toml")
-                        } ?: logger.error("Invalid Newbie Role ID. Please check config.toml")
-                    } ?: logger.error("Invalid Discord Guild ID. Please check config.toml")
                 }
-        } catch (e: IllegalArgumentException) {
-            logger.error("Invalid Discord Bot Token. Please check config.toml")
+        } catch (e: Exception) {
+            if (e::class in listOf<KClass<out Exception>>(
+                    IllegalArgumentException::class,
+                    InvalidTokenException::class
+                )
+            ) logger.error("Invalid Discord Bot Token. Please check config.toml")
             null
+
         }
     }
 
     init {
-
         transaction(database) {
             addLogger(StdOutSqlLogger)
             SchemaUtils.create(VerifyBot.LinkedAccounts)

@@ -3,17 +3,21 @@ package xyz.irodev.dislinkmc
 import com.github.benmanes.caffeine.cache.Cache
 import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.Role
-import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel
+import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
+import net.dv8tion.jda.api.entities.emoji.Emoji
 import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
+import net.dv8tion.jda.api.events.session.ReadyEvent
 import net.dv8tion.jda.api.events.user.update.UserUpdateNameEvent
 import net.dv8tion.jda.api.exceptions.HierarchyException
 import net.dv8tion.jda.api.hooks.ListenerAdapter
+import net.dv8tion.jda.api.interactions.components.buttons.Button
 import net.dv8tion.jda.api.interactions.components.text.TextInput
 import net.dv8tion.jda.api.interactions.components.text.TextInputStyle
 import net.dv8tion.jda.api.interactions.modals.Modal
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder
 import org.jetbrains.exposed.dao.Entity
 import org.jetbrains.exposed.dao.EntityClass
 import org.jetbrains.exposed.dao.id.EntityID
@@ -25,22 +29,66 @@ import org.slf4j.Logger
 import java.io.File
 
 internal class VerifyBot(
-    private val guild: Guild,
-    private val newbieRole: Role,
-    private val verifyChannel: GuildChannel,
-    private val unverifyChannel: GuildChannel,
+    private val config: Config.Discord,
     private val logger: Logger,
     private val codeStore: Cache<String, DisLinkMC.VerifyCodeSet>,
     private val database: Database,
-    initFile: File
+    private val initFile: File
 ) : ListenerAdapter() {
 
     private val otpRegex = Regex("\\d{3} ?\\d{3}")
     private val nicknameRegex = Regex("\\w{3,16}")
+    private lateinit var guild: Guild
+    private lateinit var newbieRole: Role
+    private lateinit var verifyChannel: MessageChannel
+    private lateinit var unverifyChannel: MessageChannel
 
-    init {
-        if (!initFile.exists()) {
+    override fun onReady(event: ReadyEvent) {
+        guild = event.jda.getGuildById(config.guildID)?.let { guild ->
+            logger.info("Guild: $guild")
+            guild.getRoleById(config.newbieRoleID)?.let {
+                newbieRole = it
+                logger.info("Newbie Role: $newbieRole")
+            } ?: run {
+                logger.error("Invalid Newbie Role ID. Please check config.toml")
+                return
+            }
+            (guild.getGuildChannelById(config.verifyChannelID) as? MessageChannel)?.let {
+                verifyChannel = it
+                logger.info("Verify Channel: $verifyChannel")
+            } ?: run {
+                logger.error("Invalid Verify Channel ID. Please check config.toml")
+                return
+            }
+            (guild.getGuildChannelById(config.unverifyChannelID) as? MessageChannel)?.let {
+                unverifyChannel = it
+                logger.info("Unverify Channel: $unverifyChannel")
+            } ?: run {
+                logger.error("Invalid Unverify Channel ID. Please check config.toml")
+                return
+            }
+            guild
+        } ?: run {
+            logger.error("Invalid Discord Guild ID. Please check config.toml")
+            event.jda.eventManager.unregister(this)
+            return
+        }
+
+        if (initFile.createNewFile()) {
             logger.warn("First run detected. Initializing...")
+            verifyChannel.sendMessage(
+                MessageCreateBuilder().addActionRow(
+                    Button.secondary("dislinkmc:verify", "인증하기").withEmoji(Emoji.fromUnicode("🔓"))
+                ).build()
+            ).and(
+                unverifyChannel.sendMessage(
+                    MessageCreateBuilder().addActionRow(
+                        Button.success("dislinkmc:update", "새로고침").withEmoji(Emoji.fromUnicode("🔄")),
+                        Button.danger("dislinkmc:unverify", "인증 해제").withEmoji(Emoji.fromUnicode("🔒"))
+                    ).build()
+                )
+            ).queue()
+            logger.info("Successfully initialized.")
         }
     }
 
