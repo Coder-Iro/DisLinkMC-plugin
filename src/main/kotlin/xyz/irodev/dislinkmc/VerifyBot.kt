@@ -1,6 +1,7 @@
 package xyz.irodev.dislinkmc
 
 import com.github.benmanes.caffeine.cache.Cache
+import com.google.gson.Gson
 import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.Role
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
@@ -10,14 +11,16 @@ import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
 import net.dv8tion.jda.api.events.session.ReadyEvent
+import net.dv8tion.jda.api.events.user.update.UserUpdateGlobalNameEvent
 import net.dv8tion.jda.api.events.user.update.UserUpdateNameEvent
-import net.dv8tion.jda.api.exceptions.HierarchyException
 import net.dv8tion.jda.api.hooks.ListenerAdapter
 import net.dv8tion.jda.api.interactions.components.buttons.Button
 import net.dv8tion.jda.api.interactions.components.text.TextInput
 import net.dv8tion.jda.api.interactions.components.text.TextInputStyle
 import net.dv8tion.jda.api.interactions.modals.Modal
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.jetbrains.exposed.dao.Entity
 import org.jetbrains.exposed.dao.EntityClass
 import org.jetbrains.exposed.dao.id.EntityID
@@ -83,7 +86,7 @@ internal class VerifyBot(
             ).and(
                 unverifyChannel.sendMessage(
                     MessageCreateBuilder().addActionRow(
-                        Button.success("dislinkmc:update", "새로고침").withEmoji(Emoji.fromUnicode("🔄")),
+                        Button.success("dislinkmc:update", "새로고침").withEmoji(Emoji.fromUnicode("🪄")),
                         Button.danger("dislinkmc:unverify", "인증 해제").withEmoji(Emoji.fromUnicode("🔒"))
                     ).build()
                 )
@@ -93,11 +96,25 @@ internal class VerifyBot(
     }
 
     override fun onUserUpdateName(event: UserUpdateNameEvent) {
-        guild.getMember(event.user)?.takeIf { it.nickname == null }?.let { member ->
-            logger.info("Member nick changed: ${event.oldName} => ${event.newName}}")
+        guild.getMember(event.user)
+            ?.takeIf { newbieRole !in it.roles && it.nickname == null && it.user.globalName == null }?.let { member ->
+                logger.info("Member name changed: ${event.oldName} => ${event.newName}")
+                try {
+                    member.modifyNickname(event.oldName).queue()
+                    logger.info("Changed nickname: ${event.oldName}")
+                } catch (e: Exception) {
+                    logger.error("Nickname change failed due to Not Enough Permission")
+                }
+            }
+    }
+
+    override fun onUserUpdateGlobalName(event: UserUpdateGlobalNameEvent) {
+        guild.getMember(event.user)?.takeIf { newbieRole !in it.roles && it.nickname == null }?.let { member ->
+            logger.info("Member globalname changed: ${event.oldGlobalName} => ${event.newGlobalName}")
             try {
-                member.modifyNickname(event.oldName).queue()
-            } catch (e: HierarchyException) {
+                member.modifyNickname(event.oldGlobalName ?: event.user.name).queue()
+                logger.info("Changed nickname: ${event.oldGlobalName ?: event.user.name}")
+            } catch (e: Exception) {
                 logger.error("Nickname change failed due to Not Enough Permission")
             }
         }
@@ -105,7 +122,7 @@ internal class VerifyBot(
 
     override fun onGuildMemberRemove(event: GuildMemberRemoveEvent) {
         val member = event.member ?: return
-        logger.info("Member left: ${member.user.name}#${member.user.discriminator} (${member.id})")
+        logger.info("Member left: ${member.user.name} (${member.id})")
         if (newbieRole !in member.roles) {
             transaction(database) {
                 Account.findById(member.id.toULong())?.let { account ->
@@ -117,18 +134,18 @@ internal class VerifyBot(
     }
 
     override fun onGuildMemberJoin(event: GuildMemberJoinEvent) {
-        logger.info("Member joined: ${event.member.user.name}#${event.member.user.discriminator} (${event.member.id})")
+        logger.info("Member joined: ${event.member.user.name} (${event.member.id})")
         if (!event.member.user.isBot) {
             try {
                 guild.addRoleToMember(event.member, newbieRole).queue()
-            } catch (e: HierarchyException) {
+            } catch (e: Exception) {
                 logger.error("Add newbie role failed due to Not Enough Permission")
             }
         }
     }
 
     override fun onButtonInteraction(event: ButtonInteractionEvent) {
-        val name = event.member?.effectiveName ?: return
+        val member = event.member ?: return
         when (event.componentId) {
             "dislinkmc:verify" -> {
                 val nameInput = TextInput.create("name", "닉네임", TextInputStyle.SHORT)
@@ -153,12 +170,54 @@ internal class VerifyBot(
                 ).queue()
             }
 
+            "dislinkmc:update" -> {
+                event.deferReply(true).setEphemeral(true).queue()
+                transaction(database) {
+                    Account.findById(event.user.id.toULong())
+                }?.let { account ->
+                    val response = with(OkHttpClient()) {
+                        newCall(
+                            Request.Builder()
+                                .url("https://sessionserver.mojang.com/session/minecraft/profile/${account.mcuuid}")
+                                .get()
+                                .build()
+                        ).execute()
+                    }
+                    if (response.isSuccessful) {
+                        logger.info(response.toString())
+                        val profile = Gson().fromJson(response.body?.string(), Profile::class.java)
+                        if (member.effectiveName != profile.name) {
+                            try {
+                                member.modifyNickname(profile.name).queue()
+                                event.hook.sendMessage(
+                                    "${profile.name} 으로 닉네임이 변경되었습니다."
+                                ).setEphemeral(true).queue()
+                            } catch (e: Exception) {
+                                logger.error("Nickname change failed due to Not Enough Permission")
+                                event.hook.sendMessage(
+                                    "권한 부족으로 인해 닉네임 변경을 실패하였습니다."
+                                ).setEphemeral(true).queue()
+                            }
+                        } else {
+                            event.hook.sendMessage(
+                                "이미 최신상태입니다."
+                            ).setEphemeral(true).queue()
+                        }
+                    } else {
+                        event.hook.sendMessage("새로고침에 실패하였습니다. 관리자에게 문의해주세요.").setEphemeral(true).queue()
+                        logger.info(response.toString())
+                    }
+                } ?: {
+                    event.hook.sendMessage("디스코드 계정에 연결된 마인크래프트 계정이 없습니다.").setEphemeral(true).queue()
+                }
+            }
+
             "dislinkmc:unverify" -> {
                 val confirmInput = TextInput.create("confirm", "인증을 해제하시려면 본인의 닉네임을 정확히 입력해주세요.", TextInputStyle.SHORT)
                     .apply {
-                        placeholder = name
-                        minLength = name.length
-                        maxLength = name.length
+                        placeholder = member.effectiveName
+                        minLength = member.effectiveName.length
+                        maxLength = member.effectiveName.length
                     }
                 event.replyModal(
                     Modal.create("unverify", "인증 해제")
@@ -177,7 +236,7 @@ internal class VerifyBot(
                 val name = event.interaction.values[0].asString
                 val otpcode = event.interaction.values[1].asString
 
-                logger.info("Verify Request: User: ${member.user.name}#${member.user.discriminator} (${member.id})")
+                logger.info("Verify Request: User: ${member.user.name} (${member.id})")
                 logger.info("Input: Name: $name Code: $otpcode")
 
                 when {
@@ -201,10 +260,10 @@ internal class VerifyBot(
                                 codeStore.invalidate(event.interaction.values[0].asString.lowercase())
                                 logger.info("Verification succeeded.")
                                 try {
-                                    guild.removeRoleFromMember(member, newbieRole)
-
-                                    member.modifyNickname(it.name)
-                                } catch (e: HierarchyException) {
+                                    guild.removeRoleFromMember(member, newbieRole).and(
+                                        member.modifyNickname(it.name)
+                                    ).queue()
+                                } catch (e: Exception) {
                                     logger.warn("Either role removal or nickname change failed due to missing permission.")
                                     event.hook.sendMessage(
                                         "권한 부족으로 인해 닉네임 변경 또는 역할 제거가 실패하였습니다."
@@ -232,20 +291,24 @@ internal class VerifyBot(
                     event.hook.sendMessage("인증된 유저만 인증 해제할 수 있습니다.").setEphemeral(true).queue()
                 } else if (event.interaction.values[0].asString == member.effectiveName) {
                     transaction(database) {
-                        val account = Account.findById(member.id.toULong())
-                        if (account != null) {
+                        Account.findById(member.id.toULong())
+                    }?.let { account ->
+                        transaction(database) {
                             account.delete()
-                            guild.addRoleToMember(member, newbieRole)
-                            logger.info("Unverify account succeeded")
+                        }
+                        guild.addRoleToMember(member, newbieRole).and(
+                            member.modifyNickname(null)
+                        ).and(
                             event.hook.sendMessage(
                                 "인증 해제되었습니다."
-                            ).setEphemeral(true).queue()
-                        } else {
-                            logger.error("Cannot find verify data")
-                            event.hook.sendMessage(
-                                "인증 해제에 실패했습니다. 관리자에게 문의해주세요."
-                            ).setEphemeral(true).queue()
-                        }
+                            ).setEphemeral(true)
+                        ).queue()
+                        logger.info("Unverify account succeeded")
+                    } ?: {
+                        logger.error("Cannot find verify data")
+                        event.hook.sendMessage(
+                            "인증 해제에 실패했습니다. 관리자에게 문의해주세요."
+                        ).setEphemeral(true).queue()
                     }
                 } else {
                     event.hook.sendMessage(
@@ -256,9 +319,14 @@ internal class VerifyBot(
         }
     }
 
+    data class Profile(
+        val name: String = ""
+    )
+
     object LinkedAccounts : IdTable<ULong>("linked_account") {
         @OptIn(ExperimentalUnsignedTypes::class)
         override val id: Column<EntityID<ULong>> = ulong("discord").entityId()
+        override val primaryKey: PrimaryKey = PrimaryKey(id)
         val mcuuid = uuid("mcuuid")
             .uniqueIndex()
     }

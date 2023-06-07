@@ -14,9 +14,9 @@ import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.MemberCachePolicy
 import net.kyori.adventure.text.Component
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.DatabaseConfig
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.StdOutSqlLogger
-import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import java.io.File
@@ -32,7 +32,7 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
 
     private val config = Config.loadConfig(dataDirectory, logger)
 
-    private val prefix = config.message.prefix.takeIf { it.isNotEmpty() }?.let { "$it\n" } ?: ""
+    private val prefix = config.message.prefix.takeIf { it.isNotEmpty() }?.let { "$it\n\n" } ?: ""
 
     private val onSuccess: MessageFormat = MessageFormat(config.message.onSuccess)
 
@@ -45,10 +45,8 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
         .build()
 
     private val database: Database = Database.connect(
-        config.mariadb.url,
-        "org.mariadb.jdbc.Driver",
-        config.mariadb.user,
-        config.mariadb.password
+        config.mariadb.url, "org.mariadb.jdbc.Driver", config.mariadb.user, config.mariadb.password,
+        databaseConfig = DatabaseConfig { sqlLogger = StdOutSqlLogger }
     )
 
     private val discord: JDA? = config.discord.token.let { token ->
@@ -79,7 +77,6 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
 
     init {
         transaction(database) {
-            addLogger(StdOutSqlLogger)
             SchemaUtils.create(VerifyBot.LinkedAccounts)
         }
     }
@@ -89,34 +86,31 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
         val player = event.player
         val name = player.username
         val uuid = player.uniqueId
-
-        transaction(database) {
-            if (VerifyBot.Account.find { VerifyBot.LinkedAccounts.mcuuid eq uuid }.empty()) {
-                player.disconnect(Component.text("$prefix${onAlready.format(arrayOf<String>(name, uuid.toString()))}"))
-            } else {
-                try {
-                    var codeset: VerifyCodeSet? = codeStore.getIfPresent(name.lowercase())
-                    if (codeset == null) {
-                        codeset = VerifyCodeSet(name, uuid, (0..999999).random())
-                        codeStore.put(name.lowercase(), codeset)
-                    }
-                    logger.info(codeset.toString())
-                    player.disconnect(
-                        Component.text(
-                            prefix + onSuccess.format(
-                                arrayOf<String>(
-                                    name,
-                                    uuid.toString(),
-                                    String.format("%03d %03d", codeset.code / 1000, codeset.code % 1000)
-                                )
+        if (!transaction(database) { VerifyBot.Account.find { VerifyBot.LinkedAccounts.mcuuid eq uuid }.empty() }) {
+            player.disconnect(Component.text("$prefix${onAlready.format(arrayOf<String>(name, uuid.toString()))}"))
+        } else {
+            try {
+                var codeset: VerifyCodeSet? = codeStore.getIfPresent(name.lowercase())
+                if (codeset == null) {
+                    codeset = VerifyCodeSet(name, uuid, (0..999999).random())
+                    codeStore.put(name.lowercase(), codeset)
+                }
+                logger.info(codeset.toString())
+                player.disconnect(
+                    Component.text(
+                        prefix + onSuccess.format(
+                            arrayOf<String>(
+                                name,
+                                uuid.toString(),
+                                String.format("%03d %03d", codeset.code / 1000, codeset.code % 1000)
                             )
                         )
                     )
+                )
 
-                } catch (e: Exception) {
-                    player.disconnect(Component.text("$prefix${onFail.format(arrayOf<String>(name, uuid.toString()))}"))
-                    e.printStackTrace()
-                }
+            } catch (e: Exception) {
+                player.disconnect(Component.text("$prefix${onFail.format(arrayOf<String>(name, uuid.toString()))}"))
+                e.printStackTrace()
             }
         }
 
