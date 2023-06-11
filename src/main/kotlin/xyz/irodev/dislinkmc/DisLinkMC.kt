@@ -13,10 +13,9 @@ import net.dv8tion.jda.api.exceptions.InvalidTokenException
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.MemberCachePolicy
 import net.kyori.adventure.text.Component
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.DatabaseConfig
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.StdOutSqlLogger
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.statements.StatementContext
+import org.jetbrains.exposed.sql.statements.expandArgs
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import java.io.File
@@ -46,7 +45,11 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
 
     private val database: Database = Database.connect(
         config.mariadb.url, "org.mariadb.jdbc.Driver", config.mariadb.user, config.mariadb.password,
-        databaseConfig = DatabaseConfig { sqlLogger = StdOutSqlLogger }
+        databaseConfig = DatabaseConfig { sqlLogger = object: SqlLogger {
+            override fun log(context: StatementContext, transaction: Transaction) {
+                logger.info("SQL: ${context.expandArgs(transaction)}")
+            }
+        } }
     )
 
     private val discord: JDA? = config.discord.token.let { token ->
