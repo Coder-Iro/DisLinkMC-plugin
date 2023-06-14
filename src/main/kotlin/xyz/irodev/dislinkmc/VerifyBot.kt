@@ -11,8 +11,6 @@ import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
 import net.dv8tion.jda.api.events.session.ReadyEvent
-import net.dv8tion.jda.api.events.user.update.UserUpdateGlobalNameEvent
-import net.dv8tion.jda.api.events.user.update.UserUpdateNameEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
 import net.dv8tion.jda.api.interactions.components.buttons.Button
 import net.dv8tion.jda.api.interactions.components.text.TextInput
@@ -95,31 +93,6 @@ internal class VerifyBot(
         }
     }
 
-    override fun onUserUpdateName(event: UserUpdateNameEvent) {
-        guild.getMember(event.user)
-            ?.takeIf { newbieRole !in it.roles && it.nickname == null && it.user.globalName == null }?.let { member ->
-                logger.info("Member name changed: ${event.oldName} => ${event.newName}")
-                try {
-                    member.modifyNickname(event.oldName).queue()
-                    logger.info("Changed nickname: ${event.oldName}")
-                } catch (e: Exception) {
-                    logger.error("Nickname change failed due to Not Enough Permission")
-                }
-            }
-    }
-
-    override fun onUserUpdateGlobalName(event: UserUpdateGlobalNameEvent) {
-        guild.getMember(event.user)?.takeIf { newbieRole !in it.roles && it.nickname == null }?.let { member ->
-            logger.info("Member globalname changed: ${event.oldGlobalName} => ${event.newGlobalName}")
-            try {
-                member.modifyNickname(event.oldGlobalName ?: event.user.name).queue()
-                logger.info("Changed nickname: ${event.oldGlobalName ?: event.user.name}")
-            } catch (e: Exception) {
-                logger.error("Nickname change failed due to Not Enough Permission")
-            }
-        }
-    }
-
     override fun onGuildMemberRemove(event: GuildMemberRemoveEvent) {
         val member = event.member ?: return
         logger.info("Member left: ${member.user.name} (${member.id})")
@@ -148,24 +121,20 @@ internal class VerifyBot(
         val member = event.member ?: return
         when (event.componentId) {
             "dislinkmc:verify" -> {
-                val nameInput = TextInput.create("name", "닉네임", TextInputStyle.SHORT)
-                    .apply {
-                        minLength = 3
-                        maxLength = 16
-                        placeholder = "마인크래프트 닉네임"
-                    }
+                val nameInput = TextInput.create("name", "닉네임", TextInputStyle.SHORT).apply {
+                    minLength = 3
+                    maxLength = 16
+                    placeholder = "마인크래프트 닉네임"
+                }
 
-                val codeInput = TextInput.create("otpcode", "인증번호", TextInputStyle.SHORT)
-                    .apply {
-                        minLength = 6
-                        maxLength = 7
-                        placeholder = "000 000"
-                    }
+                val codeInput = TextInput.create("otpcode", "인증번호", TextInputStyle.SHORT).apply {
+                    minLength = 6
+                    maxLength = 7
+                    placeholder = "000 000"
+                }
 
                 event.replyModal(
-                    Modal.create("verify", "인증하기")
-                        .addActionRow(nameInput.build())
-                        .addActionRow(codeInput.build())
+                    Modal.create("verify", "인증하기").addActionRow(nameInput.build()).addActionRow(codeInput.build())
                         .build()
                 ).queue()
             }
@@ -179,8 +148,7 @@ internal class VerifyBot(
                         newCall(
                             Request.Builder()
                                 .url("https://sessionserver.mojang.com/session/minecraft/profile/${account.mcuuid}")
-                                .get()
-                                .build()
+                                .get().build()
                         ).execute()
                     }
                     if (response.isSuccessful) {
@@ -213,16 +181,14 @@ internal class VerifyBot(
             }
 
             "dislinkmc:unverify" -> {
-                val confirmInput = TextInput.create("confirm", "인증을 해제하시려면 본인의 닉네임을 정확히 입력해주세요.", TextInputStyle.SHORT)
-                    .apply {
+                val confirmInput =
+                    TextInput.create("confirm", "인증을 해제하시려면 본인의 닉네임을 정확히 입력해주세요.", TextInputStyle.SHORT).apply {
                         placeholder = member.effectiveName
                         minLength = member.effectiveName.length
                         maxLength = member.effectiveName.length
                     }
                 event.replyModal(
-                    Modal.create("unverify", "인증 해제")
-                        .addActionRow(confirmInput.build())
-                        .build()
+                    Modal.create("unverify", "인증 해제").addActionRow(confirmInput.build()).build()
                 ).queue()
             }
         }
@@ -327,8 +293,7 @@ internal class VerifyBot(
         @OptIn(ExperimentalUnsignedTypes::class)
         override val id: Column<EntityID<ULong>> = ulong("discord").entityId()
         override val primaryKey: PrimaryKey = PrimaryKey(id)
-        val mcuuid = uuid("mcuuid")
-            .uniqueIndex()
+        val mcuuid = uuid("mcuuid").uniqueIndex()
     }
 
     class Account(id: EntityID<ULong>) : Entity<ULong>(id) {

@@ -25,9 +25,7 @@ internal data class Config(
     )
 
     data class MariaDB(
-        val url: String = "",
-        val user: String = "",
-        val password: String = ""
+        val url: String = "", val user: String = "", val password: String = ""
     )
 
     data class MessageList(

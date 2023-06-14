@@ -39,18 +39,20 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
 
     private val onAlready: MessageFormat = MessageFormat(config.message.onAlready)
 
-    private val codeStore: Cache<String, VerifyCodeSet> = Caffeine.newBuilder()
-        .expireAfterWrite(config.otp.time, TimeUnit.SECONDS)
-        .build()
+    private val codeStore: Cache<String, VerifyCodeSet> =
+        Caffeine.newBuilder().expireAfterWrite(config.otp.time, TimeUnit.SECONDS).build()
 
-    private val database: Database = Database.connect(
-        config.mariadb.url, "org.mariadb.jdbc.Driver", config.mariadb.user, config.mariadb.password,
-        databaseConfig = DatabaseConfig { sqlLogger = object: SqlLogger {
-            override fun log(context: StatementContext, transaction: Transaction) {
-                logger.info("SQL: ${context.expandArgs(transaction)}")
+    private val database: Database = Database.connect(config.mariadb.url,
+        "org.mariadb.jdbc.Driver",
+        config.mariadb.user,
+        config.mariadb.password,
+        databaseConfig = DatabaseConfig {
+            sqlLogger = object : SqlLogger {
+                override fun log(context: StatementContext, transaction: Transaction) {
+                    logger.info("SQL: ${context.expandArgs(transaction)}")
+                }
             }
-        } }
-    )
+        })
 
     private val discord: JDA? = config.discord.token.let { token ->
         try {
@@ -58,19 +60,14 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
                 .setMemberCachePolicy(MemberCachePolicy.ALL).build().apply {
                     addEventListener(
                         VerifyBot(
-                            config.discord,
-                            logger,
-                            codeStore,
-                            database,
-                            File(dataDirectory.toFile(), ".inited")
+                            config.discord, logger, codeStore, database, File(dataDirectory.toFile(), ".inited")
                         )
                     )
                     awaitReady()
                 }
         } catch (e: Exception) {
             if (e::class in listOf<KClass<out Exception>>(
-                    IllegalArgumentException::class,
-                    InvalidTokenException::class
+                    IllegalArgumentException::class, InvalidTokenException::class
                 )
             ) logger.error("Invalid Discord Bot Token. Please check config.toml")
             null
@@ -129,9 +126,7 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
 
 
     internal data class VerifyCodeSet(
-        val name: String = "",
-        val uuid: UUID = UUID.randomUUID(),
-        val code: Int = 0
+        val name: String = "", val uuid: UUID = UUID.randomUUID(), val code: Int = 0
     )
 
 }
