@@ -1,6 +1,7 @@
 package xyz.irodev.dislinkmc
 
 import com.moandjiezana.toml.Toml
+import com.velocitypowered.api.proxy.ProxyServer
 import org.slf4j.Logger
 import java.io.File
 import java.io.IOException
@@ -40,7 +41,7 @@ internal data class Config(
     )
 
     companion object {
-        internal fun loadConfig(path: Path, logger: Logger): Config {
+        internal fun loadConfig(path: Path, logger: Logger, server: ProxyServer): Config {
             val folder = path.toFile()
             val file = File(folder, "config.toml")
 
@@ -52,14 +53,16 @@ internal data class Config(
                     Config::class.java.getResourceAsStream("/" + file.name).use { input ->
                         if (input != null) {
                             Files.copy(input, file.toPath())
+                            logger.info("Generate succeed. Restart server after edit config.")
+                            server.shutdown()
                         } else {
-                            logger.error("Default Config File missing. Is it corrupted?")
-                            return Config()
+                            logger.error("Default Config File missing. Is jarfile corrupted?")
+                            server.shutdown()
                         }
                     }
                 } catch (exception: IOException) {
                     exception.printStackTrace()
-                    return Config()
+                    server.shutdown()
                 }
             }
             return Toml().read(file).to(Config::class.java)

@@ -7,9 +7,9 @@ import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.connection.LoginEvent
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.annotation.DataDirectory
+import com.velocitypowered.api.proxy.ProxyServer
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
-import net.dv8tion.jda.api.exceptions.InvalidTokenException
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.MemberCachePolicy
 import net.kyori.adventure.text.Component
@@ -23,13 +23,16 @@ import java.nio.file.Path
 import java.text.MessageFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
-import kotlin.reflect.KClass
 
 
 @Suppress("unused")
-class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory private val dataDirectory: Path) {
+class DisLinkMC @Inject constructor(
+    server: ProxyServer,
+    private val logger: Logger,
+    @DataDirectory dataDirectory: Path
+) {
 
-    private val config = Config.loadConfig(dataDirectory, logger)
+    private val config = Config.loadConfig(dataDirectory, logger, server)
 
     private val prefix = config.message.prefix.takeIf { it.isNotEmpty() }?.let { "$it\n\n" } ?: ""
 
@@ -66,12 +69,8 @@ class DisLinkMC @Inject constructor(private val logger: Logger, @DataDirectory p
                     awaitReady()
                 }
         } catch (e: Exception) {
-            if (e::class in listOf<KClass<out Exception>>(
-                    IllegalArgumentException::class, InvalidTokenException::class
-                )
-            ) logger.error("Invalid Discord Bot Token. Please check config.toml")
+            logger.error("Invalid Discord Bot Token. Please check config.toml")
             null
-
         }
     }
 
