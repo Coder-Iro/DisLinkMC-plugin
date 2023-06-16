@@ -59,6 +59,7 @@ class DisLinkMC @Inject constructor(
                 }
         } catch (e: Exception) {
             logger.error("Invalid Discord Bot Token. Please check config.toml")
+            server.shutdown()
             null
         }
     }
@@ -78,7 +79,7 @@ class DisLinkMC @Inject constructor(
                 })
             database.connector().close()
         } catch (e: SQLInvalidAuthorizationSpecException) {
-            logger.error("Failed connect to database.", e)
+            logger.error("Failed connect to database. Please check config.toml")
             server.shutdown()
         }
         transaction(database) {
