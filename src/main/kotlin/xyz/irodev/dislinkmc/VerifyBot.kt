@@ -56,7 +56,6 @@ internal class VerifyBot(
             } ?: run {
                 logger.error("Invalid Newbie Role ID. Please check config.toml")
                 server.shutdown()
-                return
             }
             (guild.getGuildChannelById(config.verifyChannelID) as? MessageChannel)?.let {
                 verifyChannel = it
@@ -64,7 +63,6 @@ internal class VerifyBot(
             } ?: run {
                 logger.error("Invalid Verify Channel ID. Please check config.toml")
                 server.shutdown()
-                return
             }
             (guild.getGuildChannelById(config.unverifyChannelID) as? MessageChannel)?.let {
                 unverifyChannel = it
@@ -72,7 +70,6 @@ internal class VerifyBot(
             } ?: run {
                 logger.error("Invalid Unverify Channel ID. Please check config.toml")
                 server.shutdown()
-                return
             }
         } ?: run {
             logger.error("Invalid Discord Guild ID. Please check config.toml")
