@@ -76,7 +76,7 @@ class DisLinkMC @Inject constructor(
                         }
                     }
                 })
-            transaction { }
+            database.connector().close()
         } catch (e: SQLInvalidAuthorizationSpecException) {
             logger.error("Failed connect to database.", e)
             server.shutdown()
