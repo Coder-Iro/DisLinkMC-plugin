@@ -28,9 +28,7 @@ import java.util.concurrent.TimeUnit
 
 @Suppress("unused")
 class DisLinkMC @Inject constructor(
-    server: ProxyServer,
-    private val logger: Logger,
-    @DataDirectory dataDirectory: Path
+    server: ProxyServer, private val logger: Logger, @DataDirectory dataDirectory: Path
 ) {
 
     private val config = Config.loadConfig(dataDirectory, logger, server)
@@ -78,12 +76,13 @@ class DisLinkMC @Inject constructor(
                         }
                     }
                 })
+
+            transaction(database) {
+                SchemaUtils.create(VerifyBot.LinkedAccounts)
+            }
         } catch (e: SQLInvalidAuthorizationSpecException) {
             logger.error("Failed connect to database.", e)
             server.shutdown()
-        }
-        transaction(database) {
-            SchemaUtils.create(VerifyBot.LinkedAccounts)
         }
     }
 
