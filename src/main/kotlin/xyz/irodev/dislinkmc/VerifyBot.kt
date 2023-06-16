@@ -2,6 +2,7 @@ package xyz.irodev.dislinkmc
 
 import com.github.benmanes.caffeine.cache.Cache
 import com.google.gson.Gson
+import com.velocitypowered.api.proxy.ProxyServer
 import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.Role
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
@@ -31,6 +32,7 @@ import java.io.File
 
 internal class VerifyBot(
     private val config: Config.Discord,
+    private val server: ProxyServer,
     private val logger: Logger,
     private val codeStore: Cache<String, DisLinkMC.VerifyCodeSet>,
     private val database: Database,
@@ -45,13 +47,14 @@ internal class VerifyBot(
     private lateinit var unverifyChannel: MessageChannel
 
     override fun onReady(event: ReadyEvent) {
-        guild = event.jda.getGuildById(config.guildID)?.let { guild ->
+        guild = event.jda.getGuildById(config.guildID)?.also { guild ->
             logger.info("Guild: $guild")
             guild.getRoleById(config.newbieRoleID)?.let {
                 newbieRole = it
                 logger.info("Newbie Role: $newbieRole")
             } ?: run {
                 logger.error("Invalid Newbie Role ID. Please check config.toml")
+                server.shutdown()
                 return
             }
             (guild.getGuildChannelById(config.verifyChannelID) as? MessageChannel)?.let {
@@ -59,6 +62,7 @@ internal class VerifyBot(
                 logger.info("Verify Channel: $verifyChannel")
             } ?: run {
                 logger.error("Invalid Verify Channel ID. Please check config.toml")
+                server.shutdown()
                 return
             }
             (guild.getGuildChannelById(config.unverifyChannelID) as? MessageChannel)?.let {
@@ -66,12 +70,12 @@ internal class VerifyBot(
                 logger.info("Unverify Channel: $unverifyChannel")
             } ?: run {
                 logger.error("Invalid Unverify Channel ID. Please check config.toml")
+                server.shutdown()
                 return
             }
-            guild
         } ?: run {
             logger.error("Invalid Discord Guild ID. Please check config.toml")
-            event.jda.eventManager.unregister(this)
+            server.shutdown()
             return
         }
 

@@ -62,10 +62,9 @@ class DisLinkMC @Inject constructor(
                 .setMemberCachePolicy(MemberCachePolicy.ALL).build().apply {
                     addEventListener(
                         VerifyBot(
-                            config.discord, logger, codeStore, database, File(dataDirectory.toFile(), ".inited")
+                            config.discord, server, logger, codeStore, database, File(dataDirectory.toFile(), ".inited")
                         )
                     )
-                    awaitReady()
                 }
         } catch (e: Exception) {
             logger.error("Invalid Discord Bot Token. Please check config.toml")
@@ -75,6 +74,7 @@ class DisLinkMC @Inject constructor(
     }
 
     init {
+        discord?.awaitReady()
         try {
             database.connector().close()
         } catch (e: SQLInvalidAuthorizationSpecException) {
