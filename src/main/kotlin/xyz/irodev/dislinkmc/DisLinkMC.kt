@@ -13,10 +13,7 @@ import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.MemberCachePolicy
 import net.kyori.adventure.text.Component
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.DatabaseConfig
-import org.jetbrains.exposed.sql.SqlLogger
-import org.jetbrains.exposed.sql.Transaction
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.StatementContext
 import org.jetbrains.exposed.sql.statements.expandArgs
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -79,9 +76,13 @@ class DisLinkMC @Inject constructor(
                         }
                     }
                 })
+            transaction { }
         } catch (e: SQLInvalidAuthorizationSpecException) {
             logger.error("Failed connect to database.", e)
             server.shutdown()
+        }
+        transaction(database) {
+            SchemaUtils.create(VerifyBot.LinkedAccounts)
         }
     }
 
