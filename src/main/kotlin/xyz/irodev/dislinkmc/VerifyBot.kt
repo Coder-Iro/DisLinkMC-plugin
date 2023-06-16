@@ -47,6 +47,7 @@ internal class VerifyBot(
     private lateinit var unverifyChannel: MessageChannel
 
     override fun onReady(event: ReadyEvent) {
+        logger.info(event.jda.toString())
         guild = event.jda.getGuildById(config.guildID)?.also { guild ->
             logger.info(guild.toString())
             guild.getRoleById(config.newbieRoleID)?.let {
