@@ -20,6 +20,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import java.io.File
 import java.nio.file.Path
+import java.sql.SQLInvalidAuthorizationSpecException
 import java.text.MessageFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -45,17 +46,7 @@ class DisLinkMC @Inject constructor(
     private val codeStore: Cache<String, VerifyCodeSet> =
         Caffeine.newBuilder().expireAfterWrite(config.otp.time, TimeUnit.SECONDS).build()
 
-    private val database: Database = Database.connect(config.mariadb.url,
-        "org.mariadb.jdbc.Driver",
-        config.mariadb.user,
-        config.mariadb.password,
-        databaseConfig = DatabaseConfig {
-            sqlLogger = object : SqlLogger {
-                override fun log(context: StatementContext, transaction: Transaction) {
-                    logger.info("SQL: ${context.expandArgs(transaction)}")
-                }
-            }
-        })
+    private lateinit var database: Database
 
     private val discord: JDA? = config.discord.token.let { token ->
         try {
@@ -75,6 +66,22 @@ class DisLinkMC @Inject constructor(
     }
 
     init {
+        try {
+            database = Database.connect(config.mariadb.url,
+                "org.mariadb.jdbc.Driver",
+                config.mariadb.user,
+                config.mariadb.password,
+                databaseConfig = DatabaseConfig {
+                    sqlLogger = object : SqlLogger {
+                        override fun log(context: StatementContext, transaction: Transaction) {
+                            logger.info("SQL: ${context.expandArgs(transaction)}")
+                        }
+                    }
+                })
+        } catch (e: SQLInvalidAuthorizationSpecException) {
+            logger.error("Failed connect to database.", e)
+            server.shutdown()
+        }
         transaction(database) {
             SchemaUtils.create(VerifyBot.LinkedAccounts)
         }
