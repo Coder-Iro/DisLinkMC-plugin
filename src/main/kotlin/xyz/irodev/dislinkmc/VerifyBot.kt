@@ -158,7 +158,7 @@ internal class VerifyBot(
                     if (response.isSuccessful) {
                         logger.info(response.toString())
                         val profile = Gson().fromJson(response.body?.string(), Profile::class.java)
-                        if (member.effectiveName != profile.name) {
+                        if (member.nickname != profile.name) {
                             try {
                                 member.modifyNickname(profile.name).queue()
                                 event.hook.sendMessage(
