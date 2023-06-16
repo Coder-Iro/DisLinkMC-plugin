@@ -44,7 +44,17 @@ class DisLinkMC @Inject constructor(
     private val codeStore: Cache<String, VerifyCodeSet> =
         Caffeine.newBuilder().expireAfterWrite(config.otp.time, TimeUnit.SECONDS).build()
 
-    private lateinit var database: Database
+    private val database: Database = Database.connect(config.mariadb.url,
+        "org.mariadb.jdbc.Driver",
+        config.mariadb.user,
+        config.mariadb.password,
+        databaseConfig = DatabaseConfig {
+            sqlLogger = object : SqlLogger {
+                override fun log(context: StatementContext, transaction: Transaction) {
+                    logger.info("SQL: ${context.expandArgs(transaction)}")
+                }
+            }
+        })
 
     private val discord: JDA? = config.discord.token.let { token ->
         try {
@@ -58,7 +68,7 @@ class DisLinkMC @Inject constructor(
                     awaitReady()
                 }
         } catch (e: Exception) {
-            logger.error("Invalid Discord Bot Token. Please check config.toml", e)
+            logger.error("Invalid Discord Bot Token. Please check config.toml")
             server.shutdown()
             null
         }
@@ -66,17 +76,6 @@ class DisLinkMC @Inject constructor(
 
     init {
         try {
-            database = Database.connect(config.mariadb.url,
-                "org.mariadb.jdbc.Driver",
-                config.mariadb.user,
-                config.mariadb.password,
-                databaseConfig = DatabaseConfig {
-                    sqlLogger = object : SqlLogger {
-                        override fun log(context: StatementContext, transaction: Transaction) {
-                            logger.info("SQL: ${context.expandArgs(transaction)}")
-                        }
-                    }
-                })
             database.connector().close()
         } catch (e: SQLInvalidAuthorizationSpecException) {
             logger.error("Failed connect to database. Please check config.toml")
