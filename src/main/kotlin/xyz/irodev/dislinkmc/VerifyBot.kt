@@ -48,10 +48,10 @@ internal class VerifyBot(
 
     override fun onReady(event: ReadyEvent) {
         guild = event.jda.getGuildById(config.guildID)?.also { guild ->
-            logger.info("Guild: $guild")
+            logger.info(guild.toString())
             guild.getRoleById(config.newbieRoleID)?.let {
                 newbieRole = it
-                logger.info("Newbie Role: $newbieRole")
+                logger.info("Newbie $newbieRole")
             } ?: run {
                 logger.error("Invalid Newbie Role ID. Please check config.toml")
                 server.shutdown()
@@ -59,7 +59,7 @@ internal class VerifyBot(
             }
             (guild.getGuildChannelById(config.verifyChannelID) as? MessageChannel)?.let {
                 verifyChannel = it
-                logger.info("Verify Channel: $verifyChannel")
+                logger.info("Verify $verifyChannel")
             } ?: run {
                 logger.error("Invalid Verify Channel ID. Please check config.toml")
                 server.shutdown()
@@ -67,7 +67,7 @@ internal class VerifyBot(
             }
             (guild.getGuildChannelById(config.unverifyChannelID) as? MessageChannel)?.let {
                 unverifyChannel = it
-                logger.info("Unverify Channel: $unverifyChannel")
+                logger.info("Unverify $unverifyChannel")
             } ?: run {
                 logger.error("Invalid Unverify Channel ID. Please check config.toml")
                 server.shutdown()
