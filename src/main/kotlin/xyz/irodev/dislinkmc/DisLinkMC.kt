@@ -58,7 +58,7 @@ class DisLinkMC @Inject constructor(
                     awaitReady()
                 }
         } catch (e: Exception) {
-            logger.error("Invalid Discord Bot Token. Please check config.toml")
+            logger.error("Invalid Discord Bot Token. Please check config.toml", e)
             server.shutdown()
             null
         }
