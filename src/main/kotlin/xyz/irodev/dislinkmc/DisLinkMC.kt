@@ -24,6 +24,7 @@ import java.sql.SQLInvalidAuthorizationSpecException
 import java.text.MessageFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
+import kotlin.jvm.optionals.getOrNull
 
 
 @Suppress("unused")
@@ -96,7 +97,7 @@ class DisLinkMC @Inject constructor(
     @Subscribe
     private fun onLogin(event: LoginEvent) {
         event.player.run {
-            if (isVerifyOnly || (virtualHost.orElse(null)?.hostString == verifyHost)) {
+            if (isVerifyOnly || (virtualHost.getOrNull()?.hostString == verifyHost)) {
                 if (!transaction(database) {
                         VerifyBot.Account.find { VerifyBot.LinkedAccounts.mcuuid eq uniqueId }.empty()
                     }) {
