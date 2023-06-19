@@ -96,25 +96,28 @@ internal class VerifyBot(
     }
 
     override fun onGuildMemberRemove(event: GuildMemberRemoveEvent) {
-        val member = event.member ?: return
-        logger.info("Member left: ${member.user.name} (${member.id})")
-        if (newbieRole !in member.roles) {
-            transaction(database) {
-                Account.findById(member.id.toULong())?.let { account ->
-                    logger.info("Verify data exists. Deleting data...")
-                    account.delete()
+        event.member?.run {
+            logger.info("Member left: ${user.name} (${id})")
+            if (newbieRole !in roles) {
+                transaction(database) {
+                    Account.findById(id.toULong())?.let { account ->
+                        logger.info("Verify data exists. Deleting data...")
+                        account.delete()
+                    }
                 }
             }
         }
     }
 
     override fun onGuildMemberJoin(event: GuildMemberJoinEvent) {
-        logger.info("Member joined: ${event.member.user.name} (${event.member.id})")
-        if (!event.member.user.isBot) {
-            try {
-                guild.addRoleToMember(event.member, newbieRole).queue()
-            } catch (e: Exception) {
-                logger.error("Add newbie role failed due to Not Enough Permission")
+        event.member.run {
+            logger.info("Member joined: ${user.name} (${id})")
+            if (!user.isBot) {
+                try {
+                    guild.addRoleToMember(this, newbieRole).queue()
+                } catch (e: Exception) {
+                    logger.error("Add newbie role failed due to Not Enough Permission")
+                }
             }
         }
     }
@@ -127,16 +130,16 @@ internal class VerifyBot(
                     minLength = 3
                     maxLength = 16
                     placeholder = "마인크래프트 닉네임"
-                }
+                }.build()
 
                 val codeInput = TextInput.create("otpcode", "인증번호", TextInputStyle.SHORT).apply {
                     minLength = 6
                     maxLength = 7
                     placeholder = "000 000"
-                }
+                }.build()
 
                 event.replyModal(
-                    Modal.create("verify", "인증하기").addActionRow(nameInput.build()).addActionRow(codeInput.build())
+                    Modal.create("verify", "인증하기").addActionRow(nameInput).addActionRow(codeInput)
                         .build()
                 ).queue()
             }
@@ -188,101 +191,104 @@ internal class VerifyBot(
                         placeholder = member.effectiveName
                         minLength = member.effectiveName.length
                         maxLength = member.effectiveName.length
-                    }
+                    }.build()
                 event.replyModal(
-                    Modal.create("unverify", "인증 해제").addActionRow(confirmInput.build()).build()
+                    Modal.create("unverify", "인증 해제").addActionRow(confirmInput).build()
                 ).queue()
             }
         }
     }
 
     override fun onModalInteraction(event: ModalInteractionEvent) {
-        val member = event.member ?: return
         event.deferReply(true).setEphemeral(true).queue()
-        when (event.modalId) {
-            "verify" -> {
-                val name = event.interaction.values[0].asString
-                val otpcode = event.interaction.values[1].asString
+        event.member?.run {
+            when (event.modalId) {
+                "verify" -> {
+                    val name = event.interaction.values[0].asString
+                    val otpcode = event.interaction.values[1].asString
 
-                logger.info("Verify Request: User: ${member.user.name} (${member.id})")
-                logger.info("Input: Name: $name Code: $otpcode")
+                    logger.info("Verify Request: User: ${user.name} (${id})")
+                    logger.info("Input: Name: $name Code: $otpcode")
 
-                when {
-                    !otpRegex.matches(otpcode) -> {
-                        logger.warn("\"${otpcode}\" is Invaild code. Verification Failed")
-                        event.hook.sendMessage("인증 코드가 유효하지 않습니다.").setEphemeral(true).queue()
-                    }
+                    when {
+                        !otpRegex.matches(otpcode) -> {
+                            logger.warn("\"${otpcode}\" is Invaild code. Verification Failed")
+                            event.hook.sendMessage("인증 코드가 유효하지 않습니다.").setEphemeral(true).queue()
+                        }
 
-                    !nicknameRegex.matches(name) -> {
-                        logger.warn("\"$name\" is Invaild Minecraft nickname. Verification Failed")
-                        event.hook.sendMessage("유효하지 않은 닉네임입니다. 다시 한번 확인해주세요.").setEphemeral(true).queue()
-                    }
-
-                    else -> {
-                        codeStore.getIfPresent(event.interaction.values[0].asString.lowercase())?.let {
-                            val intcode = otpcode.replace(" ", "").toInt()
-                            if (it.code == intcode) {
-                                transaction(database) {
-                                    Account.new(id = member.id.toULong()) { mcuuid = it.uuid }
-                                }
-                                codeStore.invalidate(event.interaction.values[0].asString.lowercase())
-                                logger.info("Verification succeeded.")
-                                try {
-                                    guild.removeRoleFromMember(member, newbieRole).and(
-                                        member.modifyNickname(it.name)
-                                    ).queue()
-                                } catch (e: Exception) {
-                                    logger.warn("Either role removal or nickname change failed due to missing permission.")
-                                    event.hook.sendMessage(
-                                        "권한 부족으로 인해 닉네임 변경 또는 역할 제거가 실패하였습니다."
-                                    ).setEphemeral(true).queue()
-                                }
-                                event.hook.sendMessage(
-                                    "${it.name} (${it.uuid}) 계정으로 인증에 성공하였습니다."
-                                ).setEphemeral(true).queue()
-                            } else {
-                                logger.warn(
-                                    "\"Input: $intcode\" != Expected: ${it.code} Code mismatch. Verification Failed"
-                                )
-                                event.hook.sendMessage("인증 코드가 일치하지 않습니다. 다시 한번 확인해주세요.").setEphemeral(true).queue()
-                            }
-                        } ?: run {
-                            logger.warn("\"${name}\" key doesn't exist in codeStore. Verification Failed")
+                        !nicknameRegex.matches(name) -> {
+                            logger.warn("\"$name\" is Invaild Minecraft nickname. Verification Failed")
                             event.hook.sendMessage("유효하지 않은 닉네임입니다. 다시 한번 확인해주세요.").setEphemeral(true).queue()
                         }
+
+                        else -> {
+                            codeStore.getIfPresent(event.interaction.values[0].asString.lowercase())?.let {
+                                val intcode = otpcode.replace(" ", "").toInt()
+                                if (it.code == intcode) {
+                                    transaction(database) {
+                                        Account.new(id = id.toULong()) { mcuuid = it.uuid }
+                                    }
+                                    codeStore.invalidate(event.interaction.values[0].asString.lowercase())
+                                    logger.info("Verification succeeded.")
+                                    try {
+                                        guild.removeRoleFromMember(this, newbieRole).and(
+                                            modifyNickname(it.name)
+                                        ).queue()
+                                    } catch (e: Exception) {
+                                        logger.warn("Either role removal or nickname change failed due to missing permission.")
+                                        event.hook.sendMessage(
+                                            "권한 부족으로 인해 닉네임 변경 또는 역할 제거가 실패하였습니다."
+                                        ).setEphemeral(true).queue()
+                                    }
+                                    event.hook.sendMessage(
+                                        "${it.name} (${it.uuid}) 계정으로 인증에 성공하였습니다."
+                                    ).setEphemeral(true).queue()
+                                } else {
+                                    logger.warn(
+                                        "\"Input: $intcode\" != Expected: ${it.code} Code mismatch. Verification Failed"
+                                    )
+                                    event.hook.sendMessage("인증 코드가 일치하지 않습니다. 다시 한번 확인해주세요.").setEphemeral(true).queue()
+                                }
+                            } ?: run {
+                                logger.warn("\"${name}\" key doesn't exist in codeStore. Verification Failed")
+                                event.hook.sendMessage("유효하지 않은 닉네임입니다. 다시 한번 확인해주세요.").setEphemeral(true).queue()
+                            }
+                        }
                     }
                 }
-            }
 
-            "unverify" -> {
-                if (newbieRole in member.roles) {
-                    event.hook.sendMessage("인증된 유저만 인증 해제할 수 있습니다.").setEphemeral(true).queue()
-                } else if (event.interaction.values[0].asString == member.effectiveName) {
-                    transaction(database) {
-                        Account.findById(member.id.toULong())
-                    }?.let { account ->
+                "unverify" -> {
+                    if (newbieRole in roles) {
+                        event.hook.sendMessage("인증된 유저만 인증 해제할 수 있습니다.").setEphemeral(true).queue()
+                    } else if (event.interaction.values[0].asString == effectiveName) {
                         transaction(database) {
-                            account.delete()
-                        }
-                        guild.addRoleToMember(member, newbieRole).and(
-                            member.modifyNickname(null)
-                        ).and(
+                            Account.findById(id.toULong())
+                        }?.let { account ->
+                            transaction(database) {
+                                account.delete()
+                            }
+                            guild.addRoleToMember(this, newbieRole).and(
+                                modifyNickname(null)
+                            ).and(
+                                event.hook.sendMessage(
+                                    "인증 해제되었습니다."
+                                ).setEphemeral(true)
+                            ).queue()
+                            logger.info("Unverify account succeeded")
+                        } ?: {
+                            logger.error("Cannot find verify data")
                             event.hook.sendMessage(
-                                "인증 해제되었습니다."
-                            ).setEphemeral(true)
-                        ).queue()
-                        logger.info("Unverify account succeeded")
-                    } ?: {
-                        logger.error("Cannot find verify data")
+                                "인증 해제에 실패했습니다. 관리자에게 문의해주세요."
+                            ).setEphemeral(true).queue()
+                        }
+                    } else {
                         event.hook.sendMessage(
-                            "인증 해제에 실패했습니다. 관리자에게 문의해주세요."
+                            "닉네임이 일치하지 않습니다. 다시 시도해주세요."
                         ).setEphemeral(true).queue()
                     }
-                } else {
-                    event.hook.sendMessage(
-                        "닉네임이 일치하지 않습니다. 다시 시도해주세요."
-                    ).setEphemeral(true).queue()
                 }
+
+                else -> {}
             }
         }
     }

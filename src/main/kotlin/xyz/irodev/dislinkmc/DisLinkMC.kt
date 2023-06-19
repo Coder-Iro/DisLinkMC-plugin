@@ -88,37 +88,47 @@ class DisLinkMC @Inject constructor(
 
     @Subscribe
     private fun onLogin(event: LoginEvent) {
-        val player = event.player
-        val name = player.username
-        val uuid = player.uniqueId
-        if (!transaction(database) { VerifyBot.Account.find { VerifyBot.LinkedAccounts.mcuuid eq uuid }.empty() }) {
-            player.disconnect(Component.text("$prefix${onAlready.format(arrayOf<String>(name, uuid.toString()))}"))
-        } else {
-            try {
-                var codeset: VerifyCodeSet? = codeStore.getIfPresent(name.lowercase())
-                if (codeset == null) {
-                    codeset = VerifyCodeSet(name, uuid, (0..999999).random())
-                    codeStore.put(name.lowercase(), codeset)
-                }
-                logger.info(codeset.toString())
-                player.disconnect(
-                    Component.text(
-                        prefix + onSuccess.format(
-                            arrayOf<String>(
-                                name,
-                                uuid.toString(),
-                                String.format("%03d %03d", codeset.code / 1000, codeset.code % 1000)
+        event.player.run {
+            if (!transaction(database) {
+                    VerifyBot.Account.find { VerifyBot.LinkedAccounts.mcuuid eq uniqueId }.empty()
+                }) {
+                disconnect(Component.text("$prefix${onAlready.format(arrayOf<String>(username, uniqueId.toString()))}"))
+            } else {
+                try {
+                    var codeset: VerifyCodeSet? = codeStore.getIfPresent(username.lowercase())
+                    if (codeset == null) {
+                        codeset = VerifyCodeSet(username, uniqueId, (0..999999).random())
+                        codeStore.put(username.lowercase(), codeset)
+                    }
+                    logger.info(codeset.toString())
+                    disconnect(
+                        Component.text(
+                            prefix + onSuccess.format(
+                                arrayOf<String>(
+                                    username,
+                                    uniqueId.toString(),
+                                    String.format("%03d %03d", codeset.code / 1000, codeset.code % 1000)
+                                )
                             )
                         )
                     )
-                )
 
-            } catch (e: Exception) {
-                player.disconnect(Component.text("$prefix${onFail.format(arrayOf<String>(name, uuid.toString()))}"))
-                e.printStackTrace()
+                } catch (e: Exception) {
+                    disconnect(
+                        Component.text(
+                            "$prefix${
+                                onFail.format(
+                                    arrayOf<String>(
+                                        username, uniqueId.toString()
+                                    )
+                                )
+                            }"
+                        )
+                    )
+                    e.printStackTrace()
+                }
             }
         }
-
     }
 
     @Subscribe
