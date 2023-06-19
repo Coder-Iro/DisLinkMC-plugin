@@ -1,6 +1,9 @@
 # config file version. Don't edit!
 version = 2
 
+[general]
+verifyHost = ""
+
 [discord]
 token = "token"
 guildID = 0
@@ -21,7 +24,8 @@ password = "password"
 prefix = "§3§lDislinkMC Verify System§r"
 onSuccess = "§e{0}''s code : {2}"
 onFail = "§eFail to generate {0}''s code"
-onAlready = "{0} is already linked with Discord"
+onAlready = "§e{0} is already linked with Discord"
+onNotVerified = "§e{0} is not linked with Discord. Retry after link account with Discord"
 
 [otp]
 # OTP Code time limit in seconds

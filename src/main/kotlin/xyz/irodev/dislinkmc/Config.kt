@@ -11,11 +11,16 @@ import java.nio.file.Path
 
 internal data class Config(
     val version: Int = 2,
+    val general: General = General(),
     val discord: Discord = Discord(),
     val mariadb: MariaDB = MariaDB(),
     val message: MessageList = MessageList(),
     val otp: OTP = OTP()
 ) {
+
+    data class General(
+        val verifyHost: String = ""
+    )
 
     data class Discord(
         val token: String = "",
@@ -33,7 +38,8 @@ internal data class Config(
         val prefix: String = "",
         val onSuccess: String = "{0}''s code : {2}",
         val onFail: String = "Fail to generate {0}''s code",
-        val onAlready: String = "{0} is already linked with Discord"
+        val onAlready: String = "{0} is already linked with Discord",
+        val onNotVerified: String = "{0} is not linked with Discord. Retry after link account with Discord"
     )
 
     data class OTP(

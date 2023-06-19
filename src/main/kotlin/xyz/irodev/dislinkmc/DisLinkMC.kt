@@ -33,6 +33,10 @@ class DisLinkMC @Inject constructor(
 
     private val config = Config.loadConfig(dataDirectory, logger, server)
 
+    private val verifyHost = config.general.verifyHost
+
+    private val isVerifyOnly = verifyHost.isEmpty()
+
     private val prefix = config.message.prefix.takeIf { it.isNotEmpty() }?.let { "$it\n\n" } ?: ""
 
     private val onSuccess: MessageFormat = MessageFormat(config.message.onSuccess)
@@ -41,10 +45,13 @@ class DisLinkMC @Inject constructor(
 
     private val onAlready: MessageFormat = MessageFormat(config.message.onAlready)
 
+    private val onNotVerified: MessageFormat = MessageFormat(config.message.onNotVerified)
+
     private val codeStore: Cache<String, VerifyCodeSet> =
         Caffeine.newBuilder().expireAfterWrite(config.otp.time, TimeUnit.SECONDS).build()
 
-    private val database: Database = Database.connect(config.mariadb.url,
+    private val database: Database = Database.connect(
+        config.mariadb.url,
         "org.mariadb.jdbc.Driver",
         config.mariadb.user,
         config.mariadb.password,
@@ -89,35 +96,14 @@ class DisLinkMC @Inject constructor(
     @Subscribe
     private fun onLogin(event: LoginEvent) {
         event.player.run {
-            if (!transaction(database) {
-                    VerifyBot.Account.find { VerifyBot.LinkedAccounts.mcuuid eq uniqueId }.empty()
-                }) {
-                disconnect(Component.text("$prefix${onAlready.format(arrayOf<String>(username, uniqueId.toString()))}"))
-            } else {
-                try {
-                    var codeset: VerifyCodeSet? = codeStore.getIfPresent(username.lowercase())
-                    if (codeset == null) {
-                        codeset = VerifyCodeSet(username, uniqueId, (0..999999).random())
-                        codeStore.put(username.lowercase(), codeset)
-                    }
-                    logger.info(codeset.toString())
-                    disconnect(
-                        Component.text(
-                            prefix + onSuccess.format(
-                                arrayOf<String>(
-                                    username,
-                                    uniqueId.toString(),
-                                    String.format("%03d %03d", codeset.code / 1000, codeset.code % 1000)
-                                )
-                            )
-                        )
-                    )
-
-                } catch (e: Exception) {
+            if (isVerifyOnly || (virtualHost.orElse(null)?.hostString == verifyHost)) {
+                if (!transaction(database) {
+                        VerifyBot.Account.find { VerifyBot.LinkedAccounts.mcuuid eq uniqueId }.empty()
+                    }) {
                     disconnect(
                         Component.text(
                             "$prefix${
-                                onFail.format(
+                                onAlready.format(
                                     arrayOf<String>(
                                         username, uniqueId.toString()
                                     )
@@ -125,8 +111,55 @@ class DisLinkMC @Inject constructor(
                             }"
                         )
                     )
-                    e.printStackTrace()
+                } else {
+                    try {
+                        var codeset: VerifyCodeSet? = codeStore.getIfPresent(username.lowercase())
+                        if (codeset == null) {
+                            codeset = VerifyCodeSet(username, uniqueId, (0..999999).random())
+                            codeStore.put(username.lowercase(), codeset)
+                        }
+                        logger.info(codeset.toString())
+                        disconnect(
+                            Component.text(
+                                prefix + onSuccess.format(
+                                    arrayOf<String>(
+                                        username,
+                                        uniqueId.toString(),
+                                        String.format("%03d %03d", codeset.code / 1000, codeset.code % 1000)
+                                    )
+                                )
+                            )
+                        )
+
+                    } catch (e: Exception) {
+                        disconnect(
+                            Component.text(
+                                "$prefix${
+                                    onFail.format(
+                                        arrayOf<String>(
+                                            username, uniqueId.toString()
+                                        )
+                                    )
+                                }"
+                            )
+                        )
+                        e.printStackTrace()
+                    }
                 }
+            } else {
+                if (transaction(database) {
+                        VerifyBot.Account.find { VerifyBot.LinkedAccounts.mcuuid eq uniqueId }.empty()
+                    }) disconnect(
+                    Component.text(
+                        "$prefix${
+                            onNotVerified.format(
+                                arrayOf<String>(
+                                    username, uniqueId.toString()
+                                )
+                            )
+                        }"
+                    )
+                )
             }
         }
     }
