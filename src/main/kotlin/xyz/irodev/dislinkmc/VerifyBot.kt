@@ -113,6 +113,12 @@ internal class VerifyBot(
         event.member.run {
             logger.info("Member joined: ${user.name} (${id})")
             if (!user.isBot) {
+                transaction(database) {
+                    Account.findById(id.toULong())?.let { account ->
+                        logger.info("Verify data exists. Deleting data...")
+                        account.delete()
+                    }
+                }
                 try {
                     guild.addRoleToMember(this, newbieRole).queue()
                 } catch (e: Exception) {
