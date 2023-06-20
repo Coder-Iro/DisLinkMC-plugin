@@ -207,13 +207,13 @@ internal class VerifyBot(
 
     override fun onModalInteraction(event: ModalInteractionEvent) {
         event.deferReply(true).setEphemeral(true).queue()
-        event.member?.run {
+        event.member?.let { member ->
             when (event.modalId) {
                 "verify" -> {
                     val name = event.interaction.values[0].asString
                     val otpcode = event.interaction.values[1].asString
 
-                    logger.info("Verify Request: User: ${user.name} (${id})")
+                    logger.info("Verify Request: User: ${member.user.name} (${member.id})")
                     logger.info("Input: Name: $name Code: $otpcode")
 
                     when {
@@ -232,13 +232,13 @@ internal class VerifyBot(
                                 val intcode = otpcode.replace(" ", "").toInt()
                                 if (it.code == intcode) {
                                     transaction(database) {
-                                        Account.new(id = id.toULong()) { mcuuid = it.uuid }
+                                        Account.new(id = member.id.toULong()) { mcuuid = it.uuid }
                                     }
                                     codeStore.invalidate(event.interaction.values[0].asString.lowercase())
                                     logger.info("Verification succeeded.")
                                     try {
-                                        guild.removeRoleFromMember(this, newbieRole).and(
-                                            modifyNickname(it.name)
+                                        guild.removeRoleFromMember(member, newbieRole).and(
+                                            member.modifyNickname(it.name)
                                         ).queue()
                                     } catch (e: Exception) {
                                         logger.warn("Either role removal or nickname change failed due to missing permission.")
@@ -264,17 +264,17 @@ internal class VerifyBot(
                 }
 
                 "unverify" -> {
-                    if (newbieRole in roles) {
+                    if (newbieRole in member.roles) {
                         event.hook.sendMessage("인증된 유저만 인증 해제할 수 있습니다.").setEphemeral(true).queue()
-                    } else if (event.interaction.values[0].asString == effectiveName) {
+                    } else if (event.interaction.values[0].asString == member.effectiveName) {
                         transaction(database) {
                             Account.findById(id.toULong())
                         }?.let { account ->
                             transaction(database) {
                                 account.delete()
                             }
-                            guild.addRoleToMember(this, newbieRole).and(
-                                modifyNickname(null)
+                            guild.addRoleToMember(member, newbieRole).and(
+                                member.modifyNickname(null)
                             ).and(
                                 event.hook.sendMessage(
                                     "인증 해제되었습니다."
