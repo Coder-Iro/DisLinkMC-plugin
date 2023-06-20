@@ -97,6 +97,7 @@ class DisLinkMC @Inject constructor(
     @Subscribe
     private fun onLogin(event: LoginEvent) {
         event.player.run {
+            logger.info("Hostname: ${virtualHost.getOrNull()?.hostString}")
             if (isVerifyOnly || (virtualHost.getOrNull()?.hostString == verifyHost)) {
                 if (!transaction(database) {
                         VerifyBot.Account.find { VerifyBot.LinkedAccounts.mcuuid eq uniqueId }.empty()
