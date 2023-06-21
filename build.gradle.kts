@@ -11,7 +11,11 @@ plugins {
 }
 
 group = "xyz.irodev"
-version = SimpleDateFormat("yyyy.MM.dd-HHmm").format(Calendar.getInstance().time)
+SimpleDateFormat("yyyy.MM.dd-HHmm").let {
+    it.timeZone = TimeZone.getTimeZone("UTC")
+    version = it.format(Calendar.getInstance().time)
+}
+
 
 repositories {
     mavenCentral()
