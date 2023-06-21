@@ -2,6 +2,8 @@
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.text.SimpleDateFormat
+import java.util.*
 
 plugins {
     kotlin("jvm") version "1.8.21"
@@ -9,7 +11,7 @@ plugins {
 }
 
 group = "xyz.irodev"
-version = "1.0.0"
+version = SimpleDateFormat("yyyy.MM.dd-HHmm").format(Calendar.getInstance().time)
 
 repositories {
     mavenCentral()
@@ -52,6 +54,17 @@ tasks {
             jvmTarget = JavaVersion.VERSION_11.toString()
         }
     }
+
+    @Suppress("UnstableApiUsage")
+    withType<ProcessResources> {
+        val props = "version" to version
+        inputs.properties(props)
+        filteringCharset = "UTF-8"
+        filesMatching("velocity-plugin.json") {
+            expand(props)
+        }
+    }
+
     build {
         dependsOn(shadowJar)
     }
