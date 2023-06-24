@@ -34,7 +34,7 @@ internal class VerifyBot(
     private val config: Config.Discord,
     private val server: ProxyServer,
     private val logger: Logger,
-    private val codeStore: Cache<String, DisLinkMC.VerifyCodeSet>,
+    private val codeStore: Cache<String, VerifyCodeSet>,
     private val database: Database,
     private val initFile: File
 ) : ListenerAdapter() {

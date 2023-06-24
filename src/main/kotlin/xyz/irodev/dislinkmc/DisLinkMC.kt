@@ -4,7 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.google.inject.Inject
 import com.velocitypowered.api.event.Subscribe
-import com.velocitypowered.api.event.connection.LoginEvent
+import com.velocitypowered.api.event.proxy.ProxyInitializeEvent
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.annotation.DataDirectory
 import com.velocitypowered.api.proxy.ProxyServer
@@ -12,24 +12,24 @@ import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.MemberCachePolicy
-import net.kyori.adventure.text.Component
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.StatementContext
 import org.jetbrains.exposed.sql.statements.expandArgs
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
+import xyz.irodev.dislinkmc.listener.CodeGenerater
+import xyz.irodev.dislinkmc.listener.MotdChanger
+import xyz.irodev.dislinkmc.listener.VerifyWhitelist
 import java.io.File
 import java.nio.file.Path
 import java.sql.SQLInvalidAuthorizationSpecException
-import java.text.MessageFormat
-import java.util.*
 import java.util.concurrent.TimeUnit
 import kotlin.jvm.optionals.getOrNull
 
 
 @Suppress("unused")
 class DisLinkMC @Inject constructor(
-    server: ProxyServer, private val logger: Logger, @DataDirectory dataDirectory: Path
+    private val server: ProxyServer, private val logger: Logger, @DataDirectory dataDirectory: Path
 ) {
 
     private val config = Config.loadConfig(dataDirectory, logger, server)
@@ -38,21 +38,10 @@ class DisLinkMC @Inject constructor(
 
     private val isVerifyOnly = verifyHost.isEmpty()
 
-    private val prefix = config.message.prefix.takeIf { it.isNotEmpty() }?.let { "$it\n\n" } ?: ""
-
-    private val onSuccess: MessageFormat = MessageFormat(config.message.onSuccess)
-
-    private val onFail: MessageFormat = MessageFormat(config.message.onFail)
-
-    private val onAlready: MessageFormat = MessageFormat(config.message.onAlready)
-
-    private val onNotVerified: MessageFormat = MessageFormat(config.message.onNotVerified)
-
     private val codeStore: Cache<String, VerifyCodeSet> =
         Caffeine.newBuilder().expireAfterWrite(config.otp.time, TimeUnit.SECONDS).build()
 
-    private val database: Database = Database.connect(
-        config.mariadb.url,
+    private val database: Database = Database.connect(config.mariadb.url,
         "org.mariadb.jdbc.Driver",
         config.mariadb.user,
         config.mariadb.password,
@@ -95,74 +84,14 @@ class DisLinkMC @Inject constructor(
     }
 
     @Subscribe
-    private fun onLogin(event: LoginEvent) {
-        event.player.run {
-            logger.info("Hostname: ${virtualHost.getOrNull()?.hostString}")
-            if (isVerifyOnly || (virtualHost.getOrNull()?.hostString == verifyHost)) {
-                if (!transaction(database) {
-                        VerifyBot.Account.find { VerifyBot.LinkedAccounts.mcuuid eq uniqueId }.empty()
-                    }) {
-                    disconnect(
-                        Component.text(
-                            "$prefix${
-                                onAlready.format(
-                                    arrayOf<String>(
-                                        username, uniqueId.toString()
-                                    )
-                                )
-                            }"
-                        )
-                    )
-                } else {
-                    try {
-                        var codeset: VerifyCodeSet? = codeStore.getIfPresent(username.lowercase())
-                        if (codeset == null) {
-                            codeset = VerifyCodeSet(username, uniqueId, (0..999999).random())
-                            codeStore.put(username.lowercase(), codeset)
-                        }
-                        logger.info(codeset.toString())
-                        disconnect(
-                            Component.text(
-                                prefix + onSuccess.format(
-                                    arrayOf<String>(
-                                        username,
-                                        uniqueId.toString(),
-                                        String.format("%03d %03d", codeset.code / 1000, codeset.code % 1000)
-                                    )
-                                )
-                            )
-                        )
-
-                    } catch (e: Exception) {
-                        disconnect(
-                            Component.text(
-                                "$prefix${
-                                    onFail.format(
-                                        arrayOf<String>(
-                                            username, uniqueId.toString()
-                                        )
-                                    )
-                                }"
-                            )
-                        )
-                        e.printStackTrace()
-                    }
-                }
-            } else {
-                if (transaction(database) {
-                        VerifyBot.Account.find { VerifyBot.LinkedAccounts.mcuuid eq uniqueId }.empty()
-                    }) disconnect(
-                    Component.text(
-                        "$prefix${
-                            onNotVerified.format(
-                                arrayOf<String>(
-                                    username, uniqueId.toString()
-                                )
-                            )
-                        }"
-                    )
-                )
-            }
+    private fun onInitialize(@Suppress("UNUSED_PARAMETER") event: ProxyInitializeEvent?) {
+        if (isVerifyOnly) {
+            server.eventManager.register(this, CodeGenerater(logger, database, config.message, codeStore))
+        } else {
+            server.eventManager.register(
+                this, MotdChanger(verifyHost, server.configuration.motd, server.configuration.favicon.getOrNull())
+            )
+            server.eventManager.register(this, VerifyWhitelist(logger, database, config.message, codeStore, verifyHost))
         }
     }
 
@@ -173,10 +102,5 @@ class DisLinkMC @Inject constructor(
             awaitShutdown()
         }
     }
-
-
-    internal data class VerifyCodeSet(
-        val name: String = "", val uuid: UUID = UUID.randomUUID(), val code: Int = 0
-    )
 
 }
