@@ -290,7 +290,7 @@ internal class VerifyBot(
                         event.hook.sendMessage("인증된 유저만 인증 해제할 수 있습니다.").setEphemeral(true).queue()
                     } else if (event.interaction.values[0].asString == member.effectiveName) {
                         transaction(database) {
-                            Account.findById(id.toULong())
+                            Account.findById(member.id.toULong())
                         }?.let { account ->
                             transaction(database) {
                                 account.delete()
