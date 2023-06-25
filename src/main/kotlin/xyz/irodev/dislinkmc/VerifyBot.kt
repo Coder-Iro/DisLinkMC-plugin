@@ -7,6 +7,7 @@ import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.Role
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
 import net.dv8tion.jda.api.entities.emoji.Emoji
+import net.dv8tion.jda.api.events.guild.GuildBanEvent
 import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
@@ -118,22 +119,25 @@ internal class VerifyBot(
     }
 
     override fun onGuildMemberJoin(event: GuildMemberJoinEvent) {
-        event.member.run {
-            logger.info("Member joined: ${user.name} (${id})")
-            if (!user.isBot) {
+        event.member.let { member ->
+            logger.info("Member joined: ${member.user.name} (${member.id})")
+            if (!member.user.isBot) {
                 transaction(database) {
-                    Account.findById(id.toULong())?.let { account ->
+                    Account.findById(member.id.toULong())?.let { account ->
                         logger.info("Verify data exists. Deleting data...")
                         account.delete()
                     }
                 }
                 try {
-                    guild.addRoleToMember(this, newbieRole).queue()
+                    guild.addRoleToMember(member, newbieRole).queue()
                 } catch (e: Exception) {
                     logger.error("Add newbie role failed due to Not Enough Permission")
                 }
             }
         }
+    }
+
+    override fun onGuildBan(event: GuildBanEvent) {
     }
 
     override fun onUserContextInteraction(event: UserContextInteractionEvent) {
