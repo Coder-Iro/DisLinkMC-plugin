@@ -57,6 +57,14 @@ internal class VerifyBot(
                 logger.error("Invalid Newbie Role ID. Please check config.toml")
                 server.shutdown()
             }
+        } ?: run {
+            logger.error("Invalid Discord Guild ID. Please check config.toml")
+            server.shutdown()
+            return
+        }
+
+        if (initFile.createNewFile()) {
+            logger.warn("First run detected. Initializing...")
             (guild.getGuildChannelById(config.verifyChannelID) as? MessageChannel)?.let {
                 verifyChannel = it
                 logger.info("Verify $verifyChannel")
@@ -71,14 +79,6 @@ internal class VerifyBot(
                 logger.error("Invalid Unverify Channel ID. Please check config.toml")
                 server.shutdown()
             }
-        } ?: run {
-            logger.error("Invalid Discord Guild ID. Please check config.toml")
-            server.shutdown()
-            return
-        }
-
-        if (initFile.createNewFile()) {
-            logger.warn("First run detected. Initializing...")
             verifyChannel.sendMessage(
                 MessageCreateBuilder().addActionRow(
                     Button.secondary("dislinkmc:verify", "인증하기").withEmoji(Emoji.fromUnicode("🔓"))
