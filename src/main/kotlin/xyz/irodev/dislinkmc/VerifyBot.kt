@@ -10,9 +10,12 @@ import net.dv8tion.jda.api.entities.emoji.Emoji
 import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
+import net.dv8tion.jda.api.events.interaction.command.UserContextInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
 import net.dv8tion.jda.api.events.session.ReadyEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
+import net.dv8tion.jda.api.interactions.commands.Command
+import net.dv8tion.jda.api.interactions.commands.build.Commands
 import net.dv8tion.jda.api.interactions.components.buttons.Button
 import net.dv8tion.jda.api.interactions.components.text.TextInput
 import net.dv8tion.jda.api.interactions.components.text.TextInputStyle
@@ -29,6 +32,7 @@ import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import java.io.File
+import java.util.UUID
 
 internal class VerifyBot(
     private val config: Config.Discord,
@@ -62,6 +66,10 @@ internal class VerifyBot(
             server.shutdown()
             return
         }
+
+        guild.updateCommands().addCommands(
+            Commands.context(Command.Type.USER, "인증 계정 정보 조회")
+        ).queue()
 
         if (initFile.createNewFile()) {
             logger.warn("First run detected. Initializing...")
@@ -128,6 +136,17 @@ internal class VerifyBot(
         }
     }
 
+    override fun onUserContextInteraction(event: UserContextInteractionEvent) {
+        event.targetMember?.let {
+            event.reply(if (newbieRole !in it.roles) transaction(database) {
+                Account.findById(it.id.toULong())
+            }?.mcuuid?.run {
+                "https://ko.namemc.com/profile/$this"
+            } ?: "인증 데이터가 존재하지 않습니다."
+            else "인증 되지 않은 유저입니다.").setEphemeral(true).queue()
+        }
+    }
+
     override fun onButtonInteraction(event: ButtonInteractionEvent) {
         val member = event.member ?: return
         when (event.componentId) {
@@ -145,8 +164,7 @@ internal class VerifyBot(
                 }.build()
 
                 event.replyModal(
-                    Modal.create("verify", "인증하기").addActionRow(nameInput).addActionRow(codeInput)
-                        .build()
+                    Modal.create("verify", "인증하기").addActionRow(nameInput).addActionRow(codeInput).build()
                 ).queue()
             }
 
@@ -314,6 +332,15 @@ internal class VerifyBot(
         companion object : EntityClass<ULong, Account>(LinkedAccounts)
 
         var mcuuid by LinkedAccounts.mcuuid
+    }
+
+    object Blacklist : IdTable<UUID>("blacklist") {
+        override val id: Column<EntityID<UUID>> = uuid("mcuuid").entityId()
+        override val primaryKey: PrimaryKey = PrimaryKey(id)
+    }
+
+    class BannedAccount(id: EntityID<UUID>) : Entity<UUID>(id) {
+        companion object : EntityClass<UUID, BannedAccount>(Blacklist)
     }
 }
 

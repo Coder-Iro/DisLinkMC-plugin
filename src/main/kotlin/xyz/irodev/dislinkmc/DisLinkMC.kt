@@ -79,7 +79,7 @@ class DisLinkMC @Inject constructor(
             server.shutdown()
         }
         transaction(database) {
-            SchemaUtils.create(VerifyBot.LinkedAccounts)
+            SchemaUtils.create(VerifyBot.LinkedAccounts, VerifyBot.Blacklist)
         }
     }
 
