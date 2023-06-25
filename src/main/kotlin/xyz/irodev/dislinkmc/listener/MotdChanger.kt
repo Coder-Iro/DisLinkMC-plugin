@@ -11,7 +11,12 @@ class MotdChanger(private val verifyHost: String, private val motd: Component, p
     @Subscribe
     private fun ProxyPingEvent.onPing() {
         if (connection.virtualHost.getOrNull()?.hostString == verifyHost) {
-            ping = ServerPing(ping.version, null, motd, favicon)
+            ping = ServerPing(
+                ServerPing.Version(connection.protocolVersion.protocol, connection.protocolVersion.name),
+                ServerPing.Players(0, 0, listOf()),
+                motd,
+                favicon
+            )
         }
     }
 }
