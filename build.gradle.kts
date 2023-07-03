@@ -25,7 +25,7 @@ dependencies {
     compileOnly("com.velocitypowered:velocity-api:3.1.1")
     implementation("com.github.ben-manes.caffeine:caffeine:3.1.6")
     implementation("org.mariadb.jdbc:mariadb-java-client:3.1.4")
-    implementation("net.dv8tion:JDA:5.0.0-beta.11") {
+    implementation("net.dv8tion:JDA:5.0.0-beta.12") {
         exclude(module = "opus-java")
     }
     implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")
