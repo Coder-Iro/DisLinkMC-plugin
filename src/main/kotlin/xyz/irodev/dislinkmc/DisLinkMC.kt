@@ -83,20 +83,29 @@ class DisLinkMC @Inject constructor(
         }
     }
 
+    @Suppress("UnusedReceiverParameter")
     @Subscribe
-    private fun onInitialize(@Suppress("UNUSED_PARAMETER") event: ProxyInitializeEvent?) {
-        if (isVerifyOnly) {
-            server.eventManager.register(this, CodeGenerater(logger, database, config.message, codeStore))
-        } else {
+    private fun ProxyInitializeEvent.onInitialize() {
+        val prefix = config.message.prefix.takeIf { it.isNotEmpty() }?.let { "$it\n\n" } ?: ""
+        server.eventManager.register(
+            this@DisLinkMC,
+            CodeGenerater(logger, database, config.message, prefix, codeStore, verifyHost)
+        )
+        if (!isVerifyOnly) {
             server.eventManager.register(
-                this, MotdChanger(verifyHost, server.configuration.motd, server.configuration.favicon.getOrNull())
+                this@DisLinkMC,
+                MotdChanger(verifyHost, server.configuration.motd, server.configuration.favicon.getOrNull())
             )
-            server.eventManager.register(this, VerifyWhitelist(logger, database, config.message, codeStore, verifyHost))
+            server.eventManager.register(
+                this@DisLinkMC,
+                VerifyWhitelist(database, prefix, config.message)
+            )
         }
     }
 
+    @Suppress("UnusedReceiverParameter")
     @Subscribe
-    private fun onExit(@Suppress("UNUSED_PARAMETER") event: ProxyShutdownEvent) {
+    private fun ProxyShutdownEvent.onExit() {
         discord?.run {
             shutdown()
             awaitShutdown()
