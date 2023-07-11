@@ -1,7 +1,6 @@
 package xyz.irodev.dislinkmc.listener
 
 import com.velocitypowered.api.event.PostOrder
-import com.velocitypowered.api.event.ResultedEvent.ComponentResult.denied
 import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.connection.LoginEvent
 import net.kyori.adventure.text.Component
@@ -24,7 +23,7 @@ internal class VerifyWhitelist(
             player.run {
                 if (transaction(database) {
                         VerifyBot.Account.find { VerifyBot.LinkedAccounts.mcuuid eq uniqueId }.empty()
-                    }) result = denied(
+                    }) disconnect(
                     Component.text(
                         "$prefix${onNotVerified.format(arrayOf(username, uniqueId))}"
                     )
