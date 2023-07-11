@@ -65,13 +65,7 @@ internal class CodeGenerater(
                     } catch (e: Exception) {
                         result = denied(
                             Component.text(
-                                "$prefix${
-                                    onFail.format(
-                                        arrayOf<String>(
-                                            username, uniqueId.toString()
-                                        )
-                                    )
-                                }"
+                                "$prefix${onFail.format(arrayOf(username, uniqueId))}"
                             )
                         )
                         logger.error("", e)
