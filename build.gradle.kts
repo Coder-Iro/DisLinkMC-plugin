@@ -1,7 +1,9 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import org.eclipse.jgit.api.Git
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import java.text.SimpleDateFormat
-import java.util.*
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 plugins {
     kotlin("jvm") version "1.9.0"
@@ -9,11 +11,21 @@ plugins {
 }
 
 group = "xyz.irodev"
-SimpleDateFormat("yyyy.MM.dd-HHmm").let {
-    it.timeZone = TimeZone.getTimeZone("UTC")
-    version = it.format(Calendar.getInstance().time)
-}
+version = LocalDateTime.ofEpochSecond(
+    Git.open(projectDir).log().setMaxCount(1).call().iterator().next().commitTime.toLong(),
+    0,
+    ZoneOffset.UTC
+).format(DateTimeFormatter.ofPattern("yyyy.MM.dd-HHmm"))
 
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath("org.eclipse.jgit:org.eclipse.jgit:6.6.0.202305301015-r")
+    }
+}
 
 repositories {
     mavenCentral()
@@ -22,6 +34,7 @@ repositories {
 
 val exposedVersion: String by project
 dependencies {
+    @Suppress("VulnerableLibrariesLocal", "RedundantSuppression")
     compileOnly("com.velocitypowered:velocity-api:3.1.1")
     implementation("com.github.ben-manes.caffeine:caffeine:3.1.6")
     implementation("org.mariadb.jdbc:mariadb-java-client:3.1.4")
@@ -57,7 +70,6 @@ tasks {
         }
     }
 
-    @Suppress("UnstableApiUsage")
     withType<ProcessResources> {
         val props = "version" to version
         inputs.properties(props)
