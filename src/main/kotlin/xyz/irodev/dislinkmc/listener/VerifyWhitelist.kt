@@ -20,14 +20,16 @@ internal class VerifyWhitelist(
 
     @Subscribe(order = PostOrder.EARLY)
     fun LoginEvent.onLogin() {
-        player.run {
-            if (transaction(database) {
-                    VerifyBot.Account.find { VerifyBot.LinkedAccounts.mcuuid eq uniqueId }.empty()
-                }) result = denied(
-                Component.text(
-                    "$prefix${onNotVerified.format(arrayOf(username, uniqueId))}"
+        if (result.isAllowed) {
+            player.run {
+                if (transaction(database) {
+                        VerifyBot.Account.find { VerifyBot.LinkedAccounts.mcuuid eq uniqueId }.empty()
+                    }) result = denied(
+                    Component.text(
+                        "$prefix${onNotVerified.format(arrayOf(username, uniqueId))}"
+                    )
                 )
-            )
+            }
         }
     }
 }
