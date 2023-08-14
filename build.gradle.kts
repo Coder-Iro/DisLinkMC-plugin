@@ -36,7 +36,7 @@ val exposedVersion: String by project
 dependencies {
     @Suppress("VulnerableLibrariesLocal", "RedundantSuppression")
     compileOnly("com.velocitypowered:velocity-api:3.1.1")
-    implementation("com.github.ben-manes.caffeine:caffeine:3.1.7")
+    implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
     implementation("org.mariadb.jdbc:mariadb-java-client:3.1.4")
     implementation("net.dv8tion:JDA:5.0.0-beta.13") {
         exclude(module = "opus-java")
