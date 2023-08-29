@@ -37,7 +37,7 @@ dependencies {
     @Suppress("VulnerableLibrariesLocal", "RedundantSuppression")
     compileOnly("com.velocitypowered:velocity-api:3.1.1")
     implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
-    implementation("org.mariadb.jdbc:mariadb-java-client:3.1.4")
+    implementation("org.mariadb.jdbc:mariadb-java-client:3.2.0")
     implementation("net.dv8tion:JDA:5.0.0-beta.13") {
         exclude(module = "opus-java")
     }
@@ -61,7 +61,7 @@ tasks {
         }
         minimize {
             exclude(dependency("org.jetbrains.exposed:.*:$exposedVersion"))
-            exclude(dependency("org.mariadb.jdbc:mariadb-java-client:3.1.4"))
+            exclude(dependency("org.mariadb.jdbc:mariadb-java-client:3.2.0"))
         }
     }
     withType<KotlinCompile> {
