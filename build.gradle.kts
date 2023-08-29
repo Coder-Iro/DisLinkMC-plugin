@@ -6,7 +6,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 plugins {
-    kotlin("jvm") version "1.9.0"
+    kotlin("jvm") version "1.9.10"
     id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
