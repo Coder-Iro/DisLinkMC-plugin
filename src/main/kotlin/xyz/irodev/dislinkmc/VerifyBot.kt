@@ -128,11 +128,11 @@ internal class VerifyBot(
                         account.delete()
                     }
                 }
-                try {
-                    guild.addRoleToMember(member, newbieRole).queue()
-                } catch (e: Exception) {
-                    logger.error("Add newbie role failed due to Not Enough Permission")
-                }
+                guild.addRoleToMember(member, newbieRole).queue({
+                    logger.info("Successfully set newbie role.")
+                }, { err ->
+                    logger.warn("Failed to set newbie role.", err)
+                })
             }
         }
     }
@@ -147,7 +147,7 @@ internal class VerifyBot(
             }?.mcuuid?.run {
                 "https://ko.namemc.com/profile/$this"
             } ?: "인증 데이터가 존재하지 않습니다."
-            else "인증 되지 않은 유저입니다.").setEphemeral(true).queue()
+            else "인증 되지 않은 유저입니다.").setEphemeral(true).complete()
         }
     }
 
@@ -169,7 +169,7 @@ internal class VerifyBot(
 
                 event.replyModal(
                     Modal.create("verify", "인증하기").addActionRow(nameInput).addActionRow(codeInput).build()
-                ).queue()
+                ).complete()
             }
 
             "dislinkmc:update" -> {
@@ -188,28 +188,27 @@ internal class VerifyBot(
                         logger.info(response.toString())
                         val profile = Gson().fromJson(response.body?.string(), Profile::class.java)
                         if (member.nickname != profile.name) {
-                            try {
-                                member.modifyNickname(profile.name).queue()
+                            member.modifyNickname(profile.name).and(
                                 event.hook.sendMessage(
                                     "${profile.name} 으로 닉네임이 변경되었습니다."
-                                ).setEphemeral(true).queue()
-                            } catch (e: Exception) {
-                                logger.error("Nickname change failed due to Not Enough Permission")
+                                ).setEphemeral(true)
+                            ).queue({}, { err ->
+                                logger.error("Nickname change failed due to Not Enough Permission", err)
                                 event.hook.sendMessage(
                                     "권한 부족으로 인해 닉네임 변경을 실패하였습니다."
-                                ).setEphemeral(true).queue()
-                            }
+                                ).setEphemeral(true).complete()
+                            })
                         } else {
                             event.hook.sendMessage(
                                 "이미 최신상태입니다."
-                            ).setEphemeral(true).queue()
+                            ).setEphemeral(true).complete()
                         }
                     } else {
-                        event.hook.sendMessage("새로고침에 실패하였습니다. 관리자에게 문의해주세요.").setEphemeral(true).queue()
+                        event.hook.sendMessage("새로고침에 실패하였습니다. 관리자에게 문의해주세요.").setEphemeral(true).complete()
                         logger.info(response.toString())
                     }
                 } ?: {
-                    event.hook.sendMessage("디스코드 계정에 연결된 마인크래프트 계정이 없습니다.").setEphemeral(true).queue()
+                    event.hook.sendMessage("디스코드 계정에 연결된 마인크래프트 계정이 없습니다.").setEphemeral(true).complete()
                 }
             }
 
@@ -222,7 +221,7 @@ internal class VerifyBot(
                     }.build()
                 event.replyModal(
                     Modal.create("unverify", "인증 해제").addActionRow(confirmInput).build()
-                ).queue()
+                ).complete()
             }
         }
     }
@@ -258,19 +257,22 @@ internal class VerifyBot(
                                     }
                                     codeStore.invalidate(event.interaction.values[0].asString.lowercase())
                                     logger.info("Verification succeeded.")
-                                    try {
-                                        guild.removeRoleFromMember(member, newbieRole).and(
-                                            member.modifyNickname(it.name)
-                                        ).queue()
-                                    } catch (e: Exception) {
-                                        logger.warn("Either role removal or nickname change failed due to missing permission.")
+
+                                    guild.removeRoleFromMember(member, newbieRole).and(
+                                        member.modifyNickname(it.name)
+                                    ).queue({ _ ->
+                                        event.hook.sendMessage(
+                                            "${it.name} (${it.uuid}) 계정으로 인증에 성공하였습니다."
+                                        ).setEphemeral(true).complete()
+                                    }, { err ->
+                                        logger.warn(
+                                            "Either role removal or nickname change failed due to missing permission.",
+                                            err
+                                        )
                                         event.hook.sendMessage(
                                             "권한 부족으로 인해 닉네임 변경 또는 역할 제거가 실패하였습니다."
-                                        ).setEphemeral(true).queue()
-                                    }
-                                    event.hook.sendMessage(
-                                        "${it.name} (${it.uuid}) 계정으로 인증에 성공하였습니다."
-                                    ).setEphemeral(true).queue()
+                                        ).setEphemeral(true).complete()
+                                    })
                                 } else {
                                     logger.warn(
                                         "\"Input: $intcode\" != Expected: ${it.code} Code mismatch. Verification Failed"
@@ -326,7 +328,6 @@ internal class VerifyBot(
     )
 
     object LinkedAccounts : IdTable<ULong>("linked_account") {
-        @OptIn(ExperimentalUnsignedTypes::class)
         override val id: Column<EntityID<ULong>> = ulong("discord").entityId()
         override val primaryKey: PrimaryKey = PrimaryKey(id)
         val mcuuid = uuid("mcuuid").uniqueIndex()
@@ -343,6 +344,7 @@ internal class VerifyBot(
         override val primaryKey: PrimaryKey = PrimaryKey(id)
     }
 
+    @Suppress("unused")
     class BannedAccount(id: EntityID<UUID>) : Entity<UUID>(id) {
         companion object : EntityClass<UUID, BannedAccount>(Blacklist)
     }

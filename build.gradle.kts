@@ -62,6 +62,7 @@ tasks {
         minimize {
             exclude(dependency("org.jetbrains.exposed:.*:$exposedVersion"))
             exclude(dependency("org.mariadb.jdbc:mariadb-java-client:3.2.0"))
+            exclude(dependency("org.apache.logging.log4j:log4j-slf4j-impl"))
         }
     }
     withType<KotlinCompile> {
