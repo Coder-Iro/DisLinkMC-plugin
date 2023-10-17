@@ -263,7 +263,7 @@ internal class VerifyBot(
                                     ).queue({ _ ->
                                         event.hook.sendMessage(
                                             "${it.name} (${it.uuid}) 계정으로 인증에 성공하였습니다."
-                                        ).setEphemeral(true).complete()
+                                        ).setEphemeral(true).queue()
                                     }, { err ->
                                         logger.warn(
                                             "Either role removal or nickname change failed due to missing permission.",
@@ -271,7 +271,7 @@ internal class VerifyBot(
                                         )
                                         event.hook.sendMessage(
                                             "권한 부족으로 인해 닉네임 변경 또는 역할 제거가 실패하였습니다."
-                                        ).setEphemeral(true).complete()
+                                        ).setEphemeral(true).queue()
                                     })
                                 } else {
                                     logger.warn(
