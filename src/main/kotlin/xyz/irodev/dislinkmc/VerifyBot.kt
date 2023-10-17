@@ -196,7 +196,7 @@ internal class VerifyBot(
                                 logger.error("Nickname change failed due to Not Enough Permission", err)
                                 event.hook.sendMessage(
                                     "권한 부족으로 인해 닉네임 변경을 실패하였습니다."
-                                ).setEphemeral(true).complete()
+                                ).setEphemeral(true).queue()
                             })
                         } else {
                             event.hook.sendMessage(
