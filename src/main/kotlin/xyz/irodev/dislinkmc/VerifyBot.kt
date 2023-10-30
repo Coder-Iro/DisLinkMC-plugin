@@ -109,7 +109,7 @@ internal class VerifyBot(
             logger.info("Member left: ${user.name} (${id})")
             if (newbieRole !in roles) {
                 transaction(database) {
-                    Account.findById(id.toULong())?.let { account ->
+                    Account.findById(this@run.id.toULong())?.let { account ->
                         logger.info("Verify data exists. Deleting data...")
                         account.delete()
                     }
