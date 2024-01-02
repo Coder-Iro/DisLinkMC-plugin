@@ -37,7 +37,7 @@ dependencies {
     compileOnly("com.velocitypowered:velocity-api:3.1.1")
     implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.22.1")
     implementation("org.mariadb.jdbc:mariadb-java-client:3.3.2")
-    implementation("net.dv8tion:JDA:5.0.0-beta.18") {
+    implementation("net.dv8tion:JDA:5.0.0-beta.19") {
         exclude(module = "opus-java")
     }
     implementation("org.jetbrains.exposed:exposed-core:0.45.0")
