@@ -33,16 +33,15 @@ repositories {
 }
 
 dependencies {
-    @Suppress("VulnerableLibrariesLocal", "RedundantSuppression")
-    compileOnly("com.velocitypowered:velocity-api:3.1.1")
-    implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.22.1")
-    implementation("org.mariadb.jdbc:mariadb-java-client:3.3.2")
-    implementation("net.dv8tion:JDA:5.0.0-beta.20") {
+    compileOnly("com.velocitypowered:velocity-api:3.3.0-SNAPSHOT")
+    implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.23.1")
+    implementation("org.mariadb.jdbc:mariadb-java-client:3.3.3")
+    implementation("net.dv8tion:JDA:5.0.0-beta.23") {
         exclude(module = "opus-java")
     }
-    implementation("org.jetbrains.exposed:exposed-core:0.47.0")
-    implementation("org.jetbrains.exposed:exposed-dao:0.47.0")
-    implementation("org.jetbrains.exposed:exposed-jdbc:0.47.0")
+    implementation("org.jetbrains.exposed:exposed-core:0.50.0")
+    implementation("org.jetbrains.exposed:exposed-dao:0.50.0")
+    implementation("org.jetbrains.exposed:exposed-jdbc:0.50.0")
 }
 
 java {
