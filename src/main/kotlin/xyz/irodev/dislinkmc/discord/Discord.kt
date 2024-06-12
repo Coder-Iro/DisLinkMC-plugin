@@ -26,9 +26,7 @@ internal class Discord(
     database: Database,
 ) : Listener(logger, database) {
 
-    private val guild: Guild by lazy {
-        jda.getGuildById(config.guildID) ?: invalid("Discord Guild")
-    }
+    private lateinit var guild: Guild
     private val newbieRole: Role by lazy {
         guild.getRoleById(config.newbieRoleID) ?: invalid("Newbie Role")
     }
@@ -50,6 +48,7 @@ internal class Discord(
 
     override fun onReady(event: ReadyEvent) {
         logger.info(event.jda.selfUser.toString())
+        guild = jda.getGuildById(config.guildID) ?: invalid("Discord Guild")
         event.jda.addEventListener(
             MemberManager(logger, database, guild, newbieRole),
             Linker(logger, database, guild, newbieRole, config.setNickname, codeStore)
