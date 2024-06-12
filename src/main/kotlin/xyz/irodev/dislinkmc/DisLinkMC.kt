@@ -3,23 +3,30 @@ package xyz.irodev.dislinkmc
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.google.inject.Inject
+import com.velocitypowered.api.command.RawCommand
 import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.annotation.DataDirectory
-import com.velocitypowered.api.proxy.ProxyServer
-import net.dv8tion.jda.api.JDA
-import net.dv8tion.jda.api.JDABuilder
-import net.dv8tion.jda.api.requests.GatewayIntent
-import net.dv8tion.jda.api.utils.MemberCachePolicy
-import org.jetbrains.exposed.sql.*
+import com.velocitypowered.api.proxy.ConsoleCommandSource
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.DatabaseConfig
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.SqlLogger
+import org.jetbrains.exposed.sql.Transaction
 import org.jetbrains.exposed.sql.statements.StatementContext
 import org.jetbrains.exposed.sql.statements.expandArgs
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
-import xyz.irodev.dislinkmc.listener.CodeGenerater
-import xyz.irodev.dislinkmc.listener.MotdChanger
-import xyz.irodev.dislinkmc.listener.VerifyWhitelist
+import xyz.irodev.dislinkmc.discord.Discord
+import xyz.irodev.dislinkmc.listeners.MotdChanger
+import xyz.irodev.dislinkmc.listeners.OTPIssuer
+import xyz.irodev.dislinkmc.listeners.Whitelist
+import xyz.irodev.dislinkmc.utils.Blacklist
+import xyz.irodev.dislinkmc.utils.Config
+import xyz.irodev.dislinkmc.utils.LinkedAccounts
+import xyz.irodev.dislinkmc.utils.Server
+import xyz.irodev.dislinkmc.utils.VerifyCodeSet
 import java.io.File
 import java.nio.file.Path
 import java.sql.SQLInvalidAuthorizationSpecException
@@ -29,17 +36,25 @@ import kotlin.jvm.optionals.getOrNull
 
 @Suppress("unused")
 class DisLinkMC @Inject constructor(
-    private val server: ProxyServer, private val logger: Logger, @DataDirectory dataDirectory: Path
+    private val server: Server,
+    private val logger: Logger,
+    @DataDirectory dataDirectory: Path
 ) {
 
-    private val config = Config.loadConfig(dataDirectory, logger, server)
-
-    private val verifyHost = config.general.verifyHost
-
-    private val isVerifyOnly = verifyHost.isEmpty()
+    private val config: Config = try {
+        Config.load(File(dataDirectory.toFile(), "config.toml"))
+    } catch (e: Exception) {
+        logger.error(e.message)
+        server.shutdown()
+    }.let {
+        it ?: run {
+            logger.info("Default Config generated. Restart server after configure.")
+            server.shutdown()
+        }
+    }
 
     private val codeStore: Cache<String, VerifyCodeSet> =
-        Caffeine.newBuilder().expireAfterWrite(config.otp.time, TimeUnit.SECONDS).build()
+        Caffeine.newBuilder().expireAfterWrite(config.general.otpTime, TimeUnit.SECONDS).build()
 
     private val database: Database = Database.connect(config.mariadb.url,
         "org.mariadb.jdbc.Driver",
@@ -48,30 +63,14 @@ class DisLinkMC @Inject constructor(
         databaseConfig = DatabaseConfig {
             sqlLogger = object : SqlLogger {
                 override fun log(context: StatementContext, transaction: Transaction) {
-                    logger.info("SQL: ${context.expandArgs(transaction)}")
+                    logger.info("SQL: {}", context.expandArgs(transaction))
                 }
             }
         })
 
-    private val discord: JDA? = config.discord.token.let { token ->
-        try {
-            JDABuilder.createDefault(token).enableIntents(GatewayIntent.GUILD_MEMBERS)
-                .setMemberCachePolicy(MemberCachePolicy.ALL).build().apply {
-                    addEventListener(
-                        VerifyBot(
-                            config.discord, server, logger, codeStore, database, File(dataDirectory.toFile(), ".inited")
-                        )
-                    )
-                }
-        } catch (e: Exception) {
-            logger.error("Invalid Discord Bot Token. Please check config.toml")
-            server.shutdown()
-            null
-        }
-    }
+    private val discord = Discord(server, logger, config.discord, codeStore, database)
 
     init {
-        discord?.awaitReady()
         try {
             database.connector().close()
         } catch (e: SQLInvalidAuthorizationSpecException) {
@@ -79,37 +78,42 @@ class DisLinkMC @Inject constructor(
             server.shutdown()
         }
         transaction(database) {
-            SchemaUtils.create(VerifyBot.LinkedAccounts, VerifyBot.Blacklist)
+            SchemaUtils.create(LinkedAccounts, Blacklist)
         }
     }
 
-    @Suppress("UnusedReceiverParameter")
     @Subscribe
-    private fun ProxyInitializeEvent.onInitialize() {
-        val prefix = config.message.prefix.takeIf { it.isNotEmpty() }?.let { "$it\n\n" } ?: ""
-        server.eventManager.register(
-            this@DisLinkMC,
-            CodeGenerater(logger, database, config.message, prefix, codeStore, verifyHost)
-        )
-        if (!isVerifyOnly) {
-            server.eventManager.register(
-                this@DisLinkMC,
-                MotdChanger(verifyHost, server.configuration.motd, server.configuration.favicon.getOrNull())
-            )
-            server.eventManager.register(
-                this@DisLinkMC,
-                VerifyWhitelist(database, prefix, config.message)
+    private fun onInitialize(event: ProxyInitializeEvent) {
+        server.commandManager.let { commandManager ->
+            commandManager.register(
+                commandManager.metaBuilder("init").plugin(this).build(),
+                object : RawCommand {
+                    override fun execute(p0: RawCommand.Invocation) {
+                        discord.createButton()
+                    }
+
+                    override fun hasPermission(invocation: RawCommand.Invocation): Boolean =
+                        invocation.source() is ConsoleCommandSource
+                }
             )
         }
-    }
-
-    @Suppress("UnusedReceiverParameter")
-    @Subscribe
-    private fun ProxyShutdownEvent.onExit() {
-        discord?.run {
-            shutdown()
-            awaitShutdown()
+        server.eventManager.register(this, OTPIssuer(logger, database, config, codeStore))
+        if (config.general.verifyHost.isNotEmpty()) {
+            server.eventManager.register(
+                this,
+                MotdChanger(
+                    config.general.verifyHost,
+                    server.configuration.motd,
+                    server.configuration.favicon.getOrNull()
+                )
+            )
         }
+        if (config.general.useWhitelist)
+            server.eventManager.register(this, Whitelist(database, config.message))
     }
 
+    @Subscribe
+    private fun onExit(event: ProxyShutdownEvent) {
+        discord.shutdown()
+    }
 }

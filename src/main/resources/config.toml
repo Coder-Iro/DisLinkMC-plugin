@@ -1,11 +1,14 @@
 # config file version. Don't edit!
-version = 2
+version = 3
 
 [general]
 verifyHost = ""
+otpTime = 180
+useWhitelist = true
 
 [discord]
 token = "token"
+setNickname = false
 guildID = 0
 newbieRoleID = 0
 verifyChannelID = 0
@@ -17,16 +20,11 @@ user = "root"
 password = "password"
 
 [message]
-# Placeholder: username : {0}, UUID : {1}, code: {2}
-# Message on~ uses java's MessageFormat.
-# So, you need to escape some character like ' { }
-# https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/text/MessageFormat.html
-prefix = "§3§lDislinkMC Verify System§r"
-onSuccess = "§e{0}''s code : {2}"
-onFail = "§eFail to generate {0}''s code"
-onAlready = "§e{0} is already linked with Discord"
-onNotVerified = "§e{0} is not linked with Discord. Retry after link account with Discord"
-
-[otp]
-# OTP Code time limit in seconds
-time = 180
+# Placeholder: <name>, <uuid>, <code>
+# Below messages use MiniMessage Format.
+# https://docs.advntr.dev/minimessage/index.html
+prefix = "<dark_aqua><b>DislinkMC Verify System</b></dark_aqua>"
+onSuccess = "<yellow><name>'s code : <code></yellow>"
+onFail = "<yellow>Fail to generate <name>'s code</yellow>"
+onAlready = "<yellow><name> is already linked with Discord</yellow>"
+onNotVerified = "<yellow><name> is not linked with Discord. Retry after link account with Discord</yellow>"
