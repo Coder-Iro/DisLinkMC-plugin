@@ -48,7 +48,7 @@ internal class Discord(
 
     override fun onReady(event: ReadyEvent) {
         logger.info(event.jda.selfUser.toString())
-        guild = jda.getGuildById(config.guildID) ?: invalid("Discord Guild")
+        guild = event.jda.getGuildById(config.guildID) ?: invalid("Discord Guild")
         event.jda.addEventListener(
             MemberManager(logger, database, guild, newbieRole),
             Linker(logger, database, guild, newbieRole, config.setNickname, codeStore)
