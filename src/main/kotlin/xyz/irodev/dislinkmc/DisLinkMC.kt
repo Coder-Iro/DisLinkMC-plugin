@@ -9,6 +9,7 @@ import com.velocitypowered.api.event.proxy.ProxyInitializeEvent
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.annotation.DataDirectory
 import com.velocitypowered.api.proxy.ConsoleCommandSource
+import com.velocitypowered.api.proxy.ProxyServer
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.DatabaseConfig
 import org.jetbrains.exposed.sql.SchemaUtils
@@ -25,7 +26,6 @@ import xyz.irodev.dislinkmc.listeners.Whitelist
 import xyz.irodev.dislinkmc.utils.Blacklist
 import xyz.irodev.dislinkmc.utils.Config
 import xyz.irodev.dislinkmc.utils.LinkedAccounts
-import xyz.irodev.dislinkmc.utils.Server
 import xyz.irodev.dislinkmc.utils.VerifyCodeSet
 import java.io.File
 import java.nio.file.Path
@@ -36,7 +36,7 @@ import kotlin.jvm.optionals.getOrNull
 
 @Suppress("unused")
 class DisLinkMC @Inject constructor(
-    private val server: Server,
+    private val server: ProxyServer,
     private val logger: Logger,
     @DataDirectory dataDirectory: Path
 ) {
@@ -46,10 +46,12 @@ class DisLinkMC @Inject constructor(
     } catch (e: Exception) {
         logger.error(e.message)
         server.shutdown()
+        null!!
     }.let {
         it ?: run {
             logger.info("Default Config generated. Restart server after configure.")
             server.shutdown()
+            null!!
         }
     }
 

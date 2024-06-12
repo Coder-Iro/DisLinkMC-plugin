@@ -1,6 +1,7 @@
 package xyz.irodev.dislinkmc.discord
 
 import com.github.benmanes.caffeine.cache.Cache
+import com.velocitypowered.api.proxy.ProxyServer
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.entities.Guild
@@ -15,11 +16,10 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder
 import org.jetbrains.exposed.sql.Database
 import org.slf4j.Logger
 import xyz.irodev.dislinkmc.utils.Config
-import xyz.irodev.dislinkmc.utils.Server
 import xyz.irodev.dislinkmc.utils.VerifyCodeSet
 
 internal class Discord(
-    private val server: Server,
+    private val server: ProxyServer,
     logger: Logger,
     private val config: Config.Discord,
     private val codeStore: Cache<String, VerifyCodeSet>,
@@ -45,6 +45,7 @@ internal class Discord(
     } catch (_: Exception) {
         logger.error("Invalid Discord Bot Token. Please check config.toml")
         server.shutdown()
+        null!!
     }
 
     override fun onReady(event: ReadyEvent) {
@@ -82,5 +83,6 @@ internal class Discord(
     private fun invalid(type: String): Nothing {
         logger.error("Invalid {} ID. Please check configuration", type)
         server.shutdown()
+        null!!
     }
 }
