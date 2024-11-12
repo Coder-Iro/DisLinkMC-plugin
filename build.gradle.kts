@@ -40,7 +40,7 @@ dependencies {
     implementation("net.dv8tion:JDA:5.2.1") {
         exclude(module = "opus-java")
     }
-    implementation("org.jetbrains.exposed:exposed-core:0.55.0")
+    implementation("org.jetbrains.exposed:exposed-core:0.56.0")
     implementation("org.jetbrains.exposed:exposed-dao:0.56.0")
     implementation("org.jetbrains.exposed:exposed-jdbc:0.55.0")
 }
