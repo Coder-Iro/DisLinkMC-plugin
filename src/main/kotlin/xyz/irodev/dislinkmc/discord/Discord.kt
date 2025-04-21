@@ -61,7 +61,7 @@ internal class Discord(
             Commands.user("인증 계정 정보 조회"),
             Commands.slash("find", "마인크래프트 UUID나 닉네임으로 디스코드 유저를 검색합니다.").addSubcommands(
                 SubcommandData("uuid", "마인크래프트 UUID로 디스코드 유저를 검색합니다.")
-                    .addOption(OptionType.STRING, "UUID", "마인크래프트 유저의 UUID를 입력하세요.", true),
+                    .addOption(OptionType.STRING, "uuid", "마인크래프트 유저의 UUID를 입력하세요.", true),
                 SubcommandData("nickname", "마인크래프트 닉네임으로 디스코드 유저를 검색합니다.")
                     .addOption(OptionType.STRING, "nickname", "마인크래프트 유저의 닉네임을 입력하세요", true)
             )

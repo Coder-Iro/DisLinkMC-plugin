@@ -18,9 +18,7 @@ permissions:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,4 +35,3 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           path: build/libs/*-all.jar
-    

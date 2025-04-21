@@ -66,7 +66,7 @@ internal class MemberManager(
                 "uuid" -> {
                     try {
                         transaction(database) {
-                            Account.find { mcuuid eq UUID.fromString(event.getOption("UUID")!!.asString) }.firstOrNull()
+                            Account.find { mcuuid eq UUID.fromString(event.getOption("uuid")!!.asString) }.firstOrNull()
                         }
                     } catch (_: IllegalArgumentException) {
                         event.reply("유효하지 않은 UUID 형식입니다.").setEphemeral(true).queue()
