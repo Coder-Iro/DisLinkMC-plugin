@@ -57,10 +57,12 @@ internal class Discord(
         )
         guild.updateCommands().addCommands(
             Commands.user("인증 계정 정보 조회"),
-            Commands.slash("find uuid", "")
-                .addOption(OptionType.STRING, "UUID", "마인크래프트 유저의 UUID를 입력하세요.", true),
-            Commands.slash("find nickname", "")
-                .addOption(OptionType.STRING, "nickname", "마인크래프트 유저의 닉네임을 입력하세요", true)
+            Commands.slash("find", "").addSubcommands(
+                Commands.slash("uuid", "")
+                    .addOption(OptionType.STRING, "UUID", "마인크래프트 유저의 UUID를 입력하세요.", true),
+                Commands.slash("nickname", "")
+                    .addOption(OptionType.STRING, "nickname", "마인크래프트 유저의 닉네임을 입력하세요", true)
+            )
         )
     }
 
