@@ -78,7 +78,7 @@ internal class Linker(
                     }
                     if (response.isSuccessful) {
                         logger.info(response.toString())
-                        val profile = Gson().fromJson(response.body?.string(), Profile::class.java)
+                        val profile = Gson().fromJson(response.body?.string(), Discord.MCProfile::class.java)
                         if (member.nickname != profile.name) {
                             member.modifyNickname(profile.name).and(
                                 event.hook.sendMessage(
@@ -199,7 +199,5 @@ internal class Linker(
         }
     }
 
-    private data class Profile(
-        val name: String = ""
-    )
+
 }

@@ -9,6 +9,8 @@ import net.dv8tion.jda.api.entities.Role
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
 import net.dv8tion.jda.api.entities.emoji.Emoji
 import net.dv8tion.jda.api.events.session.ReadyEvent
+import net.dv8tion.jda.api.interactions.commands.OptionType
+import net.dv8tion.jda.api.interactions.commands.build.Commands
 import net.dv8tion.jda.api.interactions.components.buttons.Button
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.MemberCachePolicy
@@ -53,6 +55,13 @@ internal class Discord(
             MemberManager(logger, database, guild, newbieRole),
             Linker(logger, database, guild, newbieRole, config.setNickname, codeStore)
         )
+        guild.updateCommands().addCommands(
+            Commands.user("인증 계정 정보 조회"),
+            Commands.slash("find uuid", "")
+                .addOption(OptionType.STRING, "UUID", "마인크래프트 유저의 UUID를 입력하세요.", true),
+            Commands.slash("find nickname", "")
+                .addOption(OptionType.STRING, "nickname", "마인크래프트 유저의 닉네임을 입력하세요", true)
+        )
     }
 
     internal fun createButton() {
@@ -84,4 +93,9 @@ internal class Discord(
         server.shutdown()
         null!!
     }
+
+    internal data class MCProfile(
+        val name: String = "",
+        val id: String = ""
+    )
 }
