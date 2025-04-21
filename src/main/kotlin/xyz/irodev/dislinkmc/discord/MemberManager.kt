@@ -62,7 +62,7 @@ internal class MemberManager(
 
     override fun onSlashCommandInteraction(event: SlashCommandInteractionEvent) {
         if (event.name == "find") {
-            when (event.subcommandname) {
+            when (event.subcommandName) {
                 "uuid" -> {
                     try {
                         transaction(database) {

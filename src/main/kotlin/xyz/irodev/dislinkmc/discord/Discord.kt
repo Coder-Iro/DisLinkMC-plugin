@@ -11,6 +11,7 @@ import net.dv8tion.jda.api.entities.emoji.Emoji
 import net.dv8tion.jda.api.events.session.ReadyEvent
 import net.dv8tion.jda.api.interactions.commands.OptionType
 import net.dv8tion.jda.api.interactions.commands.build.Commands
+import net.dv8tion.jda.api.interactions.commands.build.SubcommandData
 import net.dv8tion.jda.api.interactions.components.buttons.Button
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.MemberCachePolicy
@@ -55,12 +56,14 @@ internal class Discord(
             MemberManager(logger, database, guild, newbieRole),
             Linker(logger, database, guild, newbieRole, config.setNickname, codeStore)
         )
+
         guild.updateCommands().addCommands(
             Commands.user("인증 계정 정보 조회"),
             Commands.slash("find", "").addSubcommands(
-                Commands.slash("uuid", "")
+
+                SubcommandData("uuid", "")
                     .addOption(OptionType.STRING, "UUID", "마인크래프트 유저의 UUID를 입력하세요.", true),
-                Commands.slash("nickname", "")
+                SubcommandData("nickname", "")
                     .addOption(OptionType.STRING, "nickname", "마인크래프트 유저의 닉네임을 입력하세요", true)
             )
         )
