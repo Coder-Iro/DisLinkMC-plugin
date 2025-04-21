@@ -7,7 +7,7 @@ import java.time.format.DateTimeFormatter
 
 plugins {
     kotlin("jvm") version "2.1.10"
-    id("com.github.johnrengelman.shadow") version "8.1.1"
+    id("com.gradleup.shadow") version "9.0.0-beta12"
 }
 
 group = "xyz.irodev"
@@ -23,7 +23,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath("org.eclipse.jgit:org.eclipse.jgit:7.1.0.202411261347-r")
+        classpath("org.eclipse.jgit:org.eclipse.jgit:7.2.0.202503040940-r")
     }
 }
 
