@@ -65,7 +65,7 @@ internal class Discord(
                 SubcommandData("nickname", "마인크래프트 닉네임으로 디스코드 유저를 검색합니다.")
                     .addOption(OptionType.STRING, "nickname", "마인크래프트 유저의 닉네임을 입력하세요", true)
             )
-        )
+        ).complete()
     }
 
     internal fun createButton() {
