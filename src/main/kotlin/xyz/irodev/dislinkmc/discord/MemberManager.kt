@@ -14,6 +14,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import xyz.irodev.dislinkmc.utils.Account
 import xyz.irodev.dislinkmc.utils.LinkedAccounts.mcuuid
+import java.util.HexFormat
 import java.util.UUID
 
 internal class MemberManager(
@@ -90,7 +91,13 @@ internal class MemberManager(
                         logger.info(request.toString())
                         val profile = Gson().fromJson(request.body?.string(), Discord.MCProfile::class.java)
                         transaction(database) {
-                            Account.find { mcuuid eq UUID.fromString(profile.id) }.firstOrNull()
+                            Account.find {
+                                mcuuid eq UUID(
+                                    HexFormat.fromHexDigitsToLong(profile.id, 0, 16),
+                                    HexFormat.fromHexDigitsToLong(profile.id, 16, 32)
+                                )
+                            }
+                                .firstOrNull()
                         }?.let {
                             event.reply("<@${it.id}> (${it.id})").setEphemeral(true).queue()
                         } ?: {
