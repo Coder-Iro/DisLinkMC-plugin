@@ -10,11 +10,7 @@ import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.annotation.DataDirectory
 import com.velocitypowered.api.proxy.ConsoleCommandSource
 import com.velocitypowered.api.proxy.ProxyServer
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.DatabaseConfig
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.SqlLogger
-import org.jetbrains.exposed.sql.Transaction
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.StatementContext
 import org.jetbrains.exposed.sql.statements.expandArgs
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -58,7 +54,8 @@ class DisLinkMC @Inject constructor(
     private val codeStore: Cache<String, VerifyCodeSet> =
         Caffeine.newBuilder().expireAfterWrite(config.general.otpTime, TimeUnit.SECONDS).build()
 
-    private val database: Database = Database.connect(config.mariadb.url,
+    private val database: Database = Database.connect(
+        config.mariadb.url,
         "org.mariadb.jdbc.Driver",
         config.mariadb.user,
         config.mariadb.password,
