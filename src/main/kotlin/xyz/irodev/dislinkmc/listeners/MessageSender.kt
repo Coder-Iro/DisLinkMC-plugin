@@ -11,5 +11,5 @@ internal abstract class MessageSender(
     private val prefix = prefix + if (prefix.isNotEmpty()) "<newline><newline>" else "" + "<message>"
     // protected fun message(orgMessage: ComponentLike): Component =
     //    MiniMessage.miniMessage().deserialize(prefix, Placeholder.component("message", orgMessage))
-    protected fun message(orgMessage: ComponentLike): Component = orgMessage
+    protected fun message(orgMessage: ComponentLike): ComponentLike = orgMessage
 }
