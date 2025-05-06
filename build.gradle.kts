@@ -14,7 +14,7 @@ group = "xyz.irodev"
 version = LocalDateTime.ofEpochSecond(
     Git.open(projectDir).log().setMaxCount(1).call().iterator().next().commitTime.toLong(),
     0,
-    ZoneOffset.UTC
+    ZoneOffset.of("+9")
 ).format(DateTimeFormatter.ofPattern("yyyy.MM.dd-HHmm"))
 
 
