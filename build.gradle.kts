@@ -42,7 +42,7 @@ dependencies {
     }
     implementation("org.jetbrains.exposed:exposed-core:1.0.0-beta-1")
     implementation("org.jetbrains.exposed:exposed-dao:1.0.0-beta-1")
-    implementation("org.jetbrains.exposed:exposed-jdbc:1.0.0-beta-1")
+    implementation("org.jetbrains.exposed:exposed-jdbc:1.0.0-beta-2")
 }
 
 java {
